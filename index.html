@@ -5,9 +5,38 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + TS</title>
+    <style>
+      * {
+        background-color: black;
+        color: white;
+      }
+      select {
+        background-color: gray;
+        color: white;
+      }
+      textarea {
+        background-color: gray;
+        color: white;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="topnavbar">
+      <select name="inputs"  id="source-file-list" class="sources__list">
+        <option value="hello.pas">hello.pas</option>
+        <option value="lexical errors">lexical errors</option>
+      </select>
+      <input type="radio" id="execute__btn" name="compile_execute" value="execute" checked>
+      <label for="execute__btn">execute</label>
+      <input type="radio" id="compile__btn" name="compile_execute" value="compile">
+      <label for="compile__btn">compile</label>
+      <button id="processButton" class="process__btn">Go!</button>
+    </div>
+    <div id="editor">
+      <textarea id="editor__text-area" rows="20" cols="40"></textarea>
+    </div>
 <!--    <script type="module" src="/src/main.ts"></script>-->
+
+  <script type="module" src="src/Pascal.ts"></script>
   </body>
 </html>

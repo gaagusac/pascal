@@ -2,7 +2,7 @@ import {Source} from "./Source.ts";
 
 
 
-interface TokenType {
+export interface TokenType {
     _tokenTypeMarker: symbol;
 }
 

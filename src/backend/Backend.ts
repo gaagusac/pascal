@@ -13,12 +13,7 @@ import { MessageListener } from "../message/MessageListener.ts";
 export abstract class Backend implements MessageProducer {
 
 
-    protected static messageHandler: MessageHandler;    // Message handler delegate.
-
-    static {
-        Backend.messageHandler = new MessageHandler();
-    }
-
+    protected messageHandler: MessageHandler = new MessageHandler();    // Message handler delegate.
     protected symTab: SymTab = {} as SymTab;          // Symbol table.
     protected iCode: ICode = {} as ICode;            // intermediate code.
 
@@ -52,7 +47,7 @@ export abstract class Backend implements MessageProducer {
      * @return the Message handler.
      */
     public getMessageHandler(): MessageHandler {
-        return Backend.messageHandler;
+        return this.messageHandler;
     }
 
     /**
@@ -60,7 +55,7 @@ export abstract class Backend implements MessageProducer {
      * @param listener the listener to add.
      */
     addMessageListener(listener: MessageListener): void {
-        Backend.messageHandler.addListener(listener);
+        return this.messageHandler.addListener(listener);
     }
 
     /**
@@ -68,7 +63,7 @@ export abstract class Backend implements MessageProducer {
      * @param listener the listener to remove.
      */
     removeMessageListener(listener: MessageListener): void {
-        Backend.messageHandler.removeListener(listener);
+        return this.messageHandler.removeListener(listener);
     }
 
     /**
@@ -76,6 +71,6 @@ export abstract class Backend implements MessageProducer {
      * @param message
      */
     sendMessage(message: Message): void {
-        Backend.messageHandler.sendMessage(message);
+        return this.messageHandler.sendMessage(message);
     }
 }
