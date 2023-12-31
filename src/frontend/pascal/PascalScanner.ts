@@ -63,7 +63,7 @@ export class PascalScanner extends Scanner {
 
         let currentChar = this.currentChar();
 
-        while (currentChar.match(/s/) || currentChar === '{') {
+        while (currentChar.match(/\s/) || currentChar === '{') {
 
             // Start of a comment?
             if (currentChar === '{') {

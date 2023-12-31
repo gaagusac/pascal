@@ -155,44 +155,44 @@ export class PascalTokenType implements TokenType {
         return this.text;
     }
 
-    public static RESERVED_WORDS = new Set<string>();
+    public static RESERVED_WORDS = new Map<string, PascalTokenType>();
 
     static {
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.AND.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.ARRAY.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.BEGIN.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.CASE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.CONST.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.DIV.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.DO.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.DOWNTO.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.ELSE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.END.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.FILE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.FOR.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.FUNCTION.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.GOTO.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.IF.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.IN.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.LABEL.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.MOD.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.NIL.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.NOT.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.OF.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.OR.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.PACKED.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.PROCEDURE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.PROGRAM.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.RECORD.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.REPEAT.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.SET.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.THEN.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.TO.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.TYPE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.UNTIL.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.VAR.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.WHILE.getText());
-        PascalTokenType.RESERVED_WORDS.add(PascalTokenType.WITH.getText());
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.AND.getText().toLowerCase(), PascalTokenType.AND);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.ARRAY.getText(), PascalTokenType.ARRAY);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.BEGIN.getText(), PascalTokenType.BEGIN);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.CASE.getText(), PascalTokenType.CASE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.CONST.getText(), PascalTokenType.CONST);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.DIV.getText(), PascalTokenType.DIV);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.DO.getText(), PascalTokenType.DO);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.DOWNTO.getText(), PascalTokenType.DOWNTO);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.ELSE.getText(), PascalTokenType.ELSE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.END.getText(), PascalTokenType.END);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.FILE.getText(), PascalTokenType.FILE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.FOR.getText(), PascalTokenType.FOR);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.FUNCTION.getText(), PascalTokenType.FUNCTION);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.GOTO.getText(), PascalTokenType.GOTO);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.IF.getText(), PascalTokenType.IF);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.IN.getText(), PascalTokenType.IN);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.LABEL.getText(), PascalTokenType.LABEL);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.MOD.getText(), PascalTokenType.MOD);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.NIL.getText(), PascalTokenType.NIL);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.NOT.getText(), PascalTokenType.NOT);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.OF.getText(), PascalTokenType.OF);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.OR.getText(), PascalTokenType.OR);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.PACKED.getText(), PascalTokenType.PACKED);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.PROCEDURE.getText(), PascalTokenType.PROCEDURE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.PROGRAM.getText(), PascalTokenType.PROGRAM);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.RECORD.getText(), PascalTokenType.RECORD);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.REPEAT.getText(), PascalTokenType.REPEAT);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.SET.getText(), PascalTokenType.SET);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.THEN.getText(), PascalTokenType.THEN);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.TO.getText(), PascalTokenType.TO);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.TYPE.getText(), PascalTokenType.TYPE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.UNTIL.getText(), PascalTokenType.UNTIL);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.VAR.getText(), PascalTokenType.VAR);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.WHILE.getText(), PascalTokenType.WHILE);
+        PascalTokenType.RESERVED_WORDS.set(PascalTokenType.WITH.getText(), PascalTokenType.WITH);
     }
 
 
