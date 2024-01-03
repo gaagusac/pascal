@@ -33,17 +33,17 @@ export class PascalStringToken extends PascalToken {
         let currentChar = this.nextChar(); // consume the initial quote '
         textBuffer += "'";
 
-        // Get the string
+        // Get the string characters.
         do {
             // Replace any whitespace character with a blank.
-            if (currentChar.match(/\s/)) {
+            if (/\s/.test(currentChar)) {
                 currentChar = " ";
             }
 
             if ((currentChar !== "'") && (currentChar !== Source.EOF)) {
                 textBuffer += currentChar;
                 valueBuffer += currentChar;
-                currentChar = this.currentChar(); // Consume character.
+                currentChar = this.nextChar(); // Consume character.
             }
 
             // Quote? Each pair of adjacent quotes represent a single-quote
@@ -51,7 +51,7 @@ export class PascalStringToken extends PascalToken {
                 while ((currentChar === "'") && (this.peekChar() === "'")) {
                     textBuffer += "''";
                     valueBuffer += currentChar; // append single-quote
-                    currentChar = this.currentChar(); // consume a pair of quotes.
+                    currentChar = this.nextChar(); // consume a pair of quotes.
                     currentChar = this.nextChar();
                 }
             }

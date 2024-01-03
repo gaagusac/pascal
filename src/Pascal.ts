@@ -96,12 +96,18 @@ class ParserMessageListener implements MessageListener {
                 let tokenType: TokenType = body.token_type;
                 let tokenText: string = body.token_text;
                 let tokenValue: any = body.token_value;
-                console.log(`>>> ${tokenType + " ".repeat(15)} line=${tokenLineNumber.toString().padStart(4, '0')}, pos=${tokenPosition.toString().padStart(3, '0')}. text="${tokenText}"`);
+                console.log(`>>> ${(tokenType as PascalTokenType).valueOfToken() + " ".repeat(15)} line=${tokenLineNumber.toString().padStart(4, '0')}, pos=${tokenPosition.toString().padStart(3, '0')}. text="${tokenText}"`);
+                if (typeof tokenValue === 'string' && tokenValue === "") {
+                    console.log(`${" ".repeat(15)}value=""`);
+                }
+                if (tokenValue === 0) {
+                    console.log(`${" ".repeat(15)}value="0"`);
+                }
                 if (tokenValue) {
                     if (tokenType === PascalTokenType.STRING) {
                         tokenValue = '"' + tokenValue + '"';
                     }
-                    console.log(`${tokenValue.toString().padStart(15, " ")}`);
+                    console.log(`${" ".repeat(15)}value=${tokenValue.toString()}`);
                 }
                 break;
             }
@@ -151,7 +157,7 @@ class ParserMessageListener implements MessageListener {
 class BackendMessageListener implements MessageListener {
 
     /**
-     * Called by the back end whenever it produces a messsage.
+     * Called by the back end whenever it produces a message.
      * @param message the message.
      */
     messageReceived(message: Message): void {

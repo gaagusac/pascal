@@ -30,16 +30,16 @@ export class PascalWordToken extends PascalToken {
 
         // Get the word character (letter or digit). The scanner has
         // already determined that the first character is a letter.
-        while (currentChar.match(/[a-z0-9]/i)) {
+        while (/[a-z0-9]/i.test(currentChar)) {
             textBuffer += currentChar;
-            currentChar = this.currentChar(); // consume character.
+            currentChar = this.nextChar();
         }
 
         this.text = textBuffer;
 
         // is it a reserved word or an Identifier?
         this.type = PascalTokenType.RESERVED_WORDS.has(this.text.toLowerCase()) ?
-                        PascalTokenType.RESERVED_WORDS.get(this.text.toLowerCase())! :
-                            PascalTokenType.IDENTIFIER!;
+                        PascalTokenType.RESERVED_WORDS.get(this.text.toLowerCase()) as PascalTokenType :
+                            PascalTokenType.IDENTIFIER;
     }
 }

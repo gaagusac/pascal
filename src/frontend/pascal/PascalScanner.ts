@@ -35,7 +35,6 @@ export class PascalScanner extends Scanner {
     protected extractToken(): Token {
 
         this.skipWhiteSpace();
-
         let token: Token;
         let currentChar: string = this.currentChar();
 
@@ -43,9 +42,9 @@ export class PascalScanner extends Scanner {
         // determines the token type.
         if (currentChar === Source.EOF) {
             token = new EofToken(this.source);
-        } else if (currentChar.match(/[a-z]/i)) {
+        } else if (/[a-z]/i.test(currentChar)) {
             token = new PascalWordToken(this.source);
-        } else if (currentChar.match(/\d/)) {
+        } else if (/\d/.test(currentChar)) {
             token = new PascalNumberToken(this.source);
         } else if (currentChar === "'") {
             token = new PascalStringToken(this.source);
@@ -55,15 +54,13 @@ export class PascalScanner extends Scanner {
             token = new PascalErrorToken(this.source, PascalErrorCode.INVALID_CHARACTER, currentChar);
             this.nextChar();
         }
-
         return token;
     }
 
     private skipWhiteSpace(): void {
 
         let currentChar = this.currentChar();
-
-        while (currentChar.match(/\s/) || currentChar === '{') {
+        while (/\s/.test(currentChar) || currentChar === '{') {
 
             // Start of a comment?
             if (currentChar === '{') {

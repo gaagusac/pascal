@@ -69,6 +69,7 @@ export class PascalTokenType implements TokenType {
     public static UP_ARROW: PascalTokenType;
     public static DOT_DOT: PascalTokenType;
 
+    // And the others tokens
     public static IDENTIFIER: PascalTokenType;
     public static INTEGER: PascalTokenType;
     public static REAL: PascalTokenType;
@@ -150,7 +151,87 @@ export class PascalTokenType implements TokenType {
 
     }
 
+    /**
+     * Returns the value of a token as a string constant
+     * @returns the value of the token as a string
+     * @public
+     */
+    public valueOfToken(): string {
+       switch (this.text) {
+           // Reserved words
+           case "and": return "AND";
+           case "array": return "ARRAY";
+           case "begin": return "BEGIN";
+           case "case": return "CASE";
+           case "const": return "CONST";
+           case "div": return "DIV";
+           case "do": return "DO";
+           case "downto": return "DOWNTO";
+           case "else": return "ELSE";
+           case "end": return "END";
+           case "file": return "FILE";
+           case "for": return "FOR";
+           case "function": return "FUNCTION";
+           case "goto": return "GOTO";
+           case "if": return "IF";
+           case "in": return "IN";
+           case "label": return "LABEL";
+           case "mod": return "MOD";
+           case "nil": return "NIL";
+           case "not": return "NOT";
+           case "of": return "OF";
+           case "or": return "OR";
+           case "packed": return "PACKED";
+           case "procedure": return "PROCEDURE";
+           case "program": return "PROGRAM";
+           case "record": return "RECORD";
+           case "repeat": return "REPEAT";
+           case "set": return "SET";
+           case "then": return "THEN";
+           case "to": return "TO";
+           case "type": return "TYPE";
+           case "until": return "UNTIL";
+           case "var": return "VAR";
+           case "while": return "WHILE";
+           case "with": return "WITH";
 
+           // Special Symbols
+           case "+": return "PLUS";
+           case "-" : return "MINUS";
+           case "*" : return "START";
+           case "/" : return "SLASH";
+           case ":=": return "COLON_EQUALS";
+           case ".": return "DOT";
+           case ",": return "COMMA";
+           case ";": return "SEMICOLON";
+           case ":": return "COLON";
+           case "'": return "QUOTE";
+           case "=": return "EQUALS";
+           case "<>": return "NOT_EQUALS";
+           case "<": return "LESS_THAN";
+           case "<=": return "LESS_EQUALS";
+           case ">=": return "GREATER_EQUALS";
+           case ">": return "GREATER_THAN";
+           case "(": return "LEFT_PAREN";
+           case ")": return "RIGHT_PAREN";
+           case "[": return "LEFT_BRACKET";
+           case "]": return "RIGHT_BRACKET";
+           case "{": return "LEFT_BRACE";
+           case "}": return "RIGHT_BRACE";
+           case "^": return "UP_ARROW";
+           case "..": return "DOT_DOT";
+
+           // Other tokens
+           case "identifier": return "IDENTIFIER";
+           case "integer": return "INTEGER";
+           case "real": return "REAL";
+           case "string": return "STRING";
+           case "error": return "ERROR";
+           case "end_of_file": return "END_OF_FILE";
+
+           default: return ">>>>>>>>>>>>>>>>ERROR<<<<<<<<<<<<<<<<<<<<<<<";
+       }
+    }
     public getText(): string {
         return this.text;
     }

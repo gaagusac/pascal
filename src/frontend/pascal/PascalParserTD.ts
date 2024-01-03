@@ -28,7 +28,6 @@ export class PascalParserTD extends Parser {
 
         while (!((token = this.nextToken()) instanceof EofToken)) {
             let tokenType = token.getType();
-
             if (tokenType !== PascalTokenType.ERROR) {
                 this.sendMessage(new Message(MessageType.TOKEN, {
                     token_line_number: token.getLineNum(),
@@ -58,7 +57,5 @@ export class PascalParserTD extends Parser {
     public getErrorCount(): number {
         return this.errorHandler.getErrorCount();
     }
-
-
 
 }

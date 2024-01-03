@@ -84,7 +84,7 @@ export class PascalSpecialSymbolToken extends PascalToken {
 
                  if (currentChar === ".") {
                      this.text += currentChar;
-                     this.currentChar(); // consume '.'
+                     this.nextChar(); // consume '.'
                  }
 
                  break;
@@ -98,7 +98,7 @@ export class PascalSpecialSymbolToken extends PascalToken {
         }
 
         // Set the type if it wasn't an error.
-        if (!this.type) {
+        if (this.type !== undefined) {
             this.type = PascalTokenType.SPECIAL_SYMBOLS.get(this.text)!;
         }
     }
