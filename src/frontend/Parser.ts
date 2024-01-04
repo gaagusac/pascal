@@ -1,11 +1,12 @@
 import {Scanner} from "./Scanner.ts";
 import {Token} from "./Token.ts";
-import {SymTab} from "../intermediate/SymTab.ts";
 import {ICode} from "../intermediate/ICode.ts";
 import {MessageProducer} from "../message/MessageProducer.ts";
 import { Message } from "../message/Message.ts";
 import { MessageListener } from "../message/MessageListener.ts";
 import {MessageHandler} from "../message/MessageHandler.ts";
+import {SymTabStack} from "../intermediate/SymTabStack.ts";
+import {SymTabFactory} from "../intermediate/SymTabFactory.ts";
 
 /**
  * @class
@@ -19,7 +20,7 @@ import {MessageHandler} from "../message/MessageHandler.ts";
  */
 export abstract class Parser implements MessageProducer {
 
-    protected symTab: SymTab;
+    protected symTabStack: SymTabStack;
     protected messageHandler: MessageHandler;
     protected scanner: Scanner;
     protected iCode: ICode;
@@ -30,7 +31,7 @@ export abstract class Parser implements MessageProducer {
      * @protected
      */
     protected constructor(scanner: Scanner) {
-        this.symTab = {} as SymTab;
+        this.symTabStack = SymTabFactory.createSymTabStack();
         this.messageHandler = new MessageHandler();
         this.scanner = scanner;
         this.iCode = {} as ICode;
@@ -56,8 +57,8 @@ export abstract class Parser implements MessageProducer {
      * @getter
      * @return the symbol table for this parser.
      */
-    public getSymTab(): SymTab {
-        return this.symTab;
+    public getSymTab(): SymTabStack {
+        return this.symTabStack;
     }
 
     public getMessageHandler(): MessageHandler {
