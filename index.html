@@ -25,12 +25,19 @@
       <select name="inputs"  id="source-file-list" class="sources__list">
         <option value="hello.pas">hello.pas</option>
         <option value="lexical errors">lexical errors</option>
+        <option value="newton.pas">Newton.pas</option>
       </select>
       <input type="radio" id="execute__btn" name="compile_execute" value="execute" checked>
       <label for="execute__btn">execute</label>
       <input type="radio" id="compile__btn" name="compile_execute" value="compile">
       <label for="compile__btn">compile</label>
       <button id="processButton" class="process__btn">Go!</button>
+    </div>
+    <div>
+      <input type="checkbox" id="crossreference__cbox" name="crossreference" checked/>
+      <label for="crossreference__cbox">Crossreference</label>
+      <input type="checkbox" id="intermediate__cbox" name="intermedaite" checked/>
+      <label for="intermediate__cbox">Intermediate</label>
     </div>
     <div id="editor">
       <textarea id="editor__text-area" rows="20" cols="40"></textarea>

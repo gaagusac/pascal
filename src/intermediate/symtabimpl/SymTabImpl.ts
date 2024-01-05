@@ -71,9 +71,7 @@ export class SymTabImpl implements SymTab, HashMap<string, SymTabEntry>{
      * @return a list of symbol table entries sorted by name.
      */
     sortedEntries(): SymTabEntry[] {
-        let sortedKeys = [...this._entries.keys()].sort((a:string, b:string): number => {
-            return String(a[0]).localeCompare(b[0]);
-        });
+        let sortedKeys = [...this._entries.keys()].sort();
         let sortedEntries: SymTabEntry[] = [];
         for (let key of sortedKeys) {
             sortedEntries.push(this._entries.get(key) as SymTabEntry);

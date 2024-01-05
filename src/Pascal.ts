@@ -2,7 +2,6 @@ import {filesArray} from "./SampleFiles.ts";
 import {Parser} from "./frontend/Parser.ts";
 import {Source} from "./frontend/Source.ts";
 import {ICode} from "./intermediate/ICode.ts";
-import {SymTab} from "./intermediate/SymTab.ts";
 import {Backend} from "./backend/Backend.ts";
 import {MessageListener} from "./message/MessageListener.ts";
 import {Message} from "./message/Message.ts";
@@ -11,6 +10,8 @@ import {FronendFactory} from "./frontend/FronendFactory.ts";
 import {BackendFactory} from "./backend/BackendFactory.ts";
 import {TokenType} from "./frontend/Token.ts";
 import {PascalTokenType} from "./frontend/pascal/PascalTokenType.ts";
+import {SymTabStack} from "./intermediate/SymTabStack.ts";
+import {printSymbolTable} from "./util/CorssReferencer.ts";
 
 
 // DOM elements
@@ -24,16 +25,15 @@ sourceList.addEventListener('change', () => {
     editorTextArea.value = filesArray[sourceList.selectedIndex];
 });
 
-const processOption = document.querySelector("input[type='radio'][name='compile_execute']:checked") as HTMLButtonElement;
+// const processOption = document.querySelector("input[type='radio'][name='compile_execute']:checked") as HTMLButtonElement;
 
-let PascalParser: Pascal;
 
 class Pascal {
 
     private parser: Parser;       // language-independent parser.
     private source: Source;       // language-independent scanner.
     private iCode: ICode;         // generated intermediate code.
-    private symTab: SymTab;       // generated symbol table.
+    private symTabStack: SymTabStack;       // generated symbol table.
     private backEnd: Backend;     // backend.
 
 
@@ -45,9 +45,14 @@ class Pascal {
         this.parser.parse();
         this.backEnd = BackendFactory.createBackend(operation);
         this.backEnd.addMessageListener(new BackendMessageListener());
-        this.iCode = this.parser.getICode();
-        this.symTab = this.parser.getSymTab();
-        this.backEnd.process(this.iCode, this.symTab);
+        this.iCode = this.parser.getICode() as ICode;
+        this.symTabStack = this.parser.getSymTabStack();
+
+        const xref = document.querySelector("#crossreference__cbox") as HTMLInputElement;
+        if (xref.checked) {
+            printSymbolTable(this.symTabStack);
+        }
+        this.backEnd.process(this.iCode, this.symTabStack);
     }
 }
 
@@ -191,5 +196,7 @@ processButton.addEventListener('click', () => {
     console.clear();
     const operation = document.querySelector("input[type='radio'][name='compile_execute']:checked") as HTMLButtonElement;
     const sourceCode = editorTextArea.value;
-    PascalParser = new Pascal(operation.value, sourceCode);
+    let PascalParser = new Pascal(operation.value, sourceCode);
+    const crossRef = document.querySelector("#crossreference__cbox") as HTMLInputElement;
+    console.log(crossRef.checked);
 });

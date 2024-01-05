@@ -16,15 +16,15 @@ interface ArrayList<T> {
 export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
 
     private currentNestingLevel: number;      // current scope nesting level.
-    private readonly _symTabs: SymTab[];               // the symbol table stack data structure. An array.
+    private _symTabs: SymTab[];               // the symbol table stack data structure. An array.
 
     /**
      * @constructor
      */
     constructor() {
         this.currentNestingLevel = 0;
-        this.add(SymTabFactory.createSymTab(this.currentNestingLevel));
         this._symTabs = [];
+        this.add(SymTabFactory.createSymTab(this.currentNestingLevel));
     }
 
     /**

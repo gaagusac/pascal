@@ -26,17 +26,21 @@ export class PascalParserTD extends Parser {
         let token: Token;
         const starTime = Date.now();
 
+        // Loop over each token until the end of file.
         while (!((token = this.nextToken()) instanceof EofToken)) {
             let tokenType = token.getType();
-            if (tokenType !== PascalTokenType.ERROR) {
-                this.sendMessage(new Message(MessageType.TOKEN, {
-                    token_line_number: token.getLineNum(),
-                    token_position: token.getPosition(),
-                    token_type: token.getType(),
-                    token_text: token.getText(),
-                    token_value: token.getValue(),
-                }));
-            } else {
+
+            if (tokenType === PascalTokenType.IDENTIFIER) {
+                let name = token.getText().toLowerCase();
+                // if it's not already in the symbol table,
+                // create and enter a new entry for the identifier.
+                let entry = this.symTabStack.lookup(name);
+                if (entry === undefined) {
+                    entry = this.symTabStack.enterLocal(name);
+                }
+                // Append the current line number for the entry.
+                entry?.appendLineNumber(token.getLineNum());
+            } else if (tokenType === PascalTokenType.ERROR) {
                 this.errorHandler.flag(token, token.getValue() as unknown as PascalErrorCode, this);
             }
         }
@@ -52,7 +56,8 @@ export class PascalParserTD extends Parser {
     }
 
     /**
-     *
+     * Returns the syntax error count for this parser.
+     * @return the error count for this parser.
      */
     public getErrorCount(): number {
         return this.errorHandler.getErrorCount();

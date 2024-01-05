@@ -23,7 +23,7 @@ export abstract class Parser implements MessageProducer {
     protected symTabStack: SymTabStack;
     protected messageHandler: MessageHandler;
     protected scanner: Scanner;
-    protected iCode: ICode;
+    protected iCode: ICode | undefined;
 
     /**
      * Constructor
@@ -34,7 +34,7 @@ export abstract class Parser implements MessageProducer {
         this.symTabStack = SymTabFactory.createSymTabStack();
         this.messageHandler = new MessageHandler();
         this.scanner = scanner;
-        this.iCode = {} as ICode;
+        this.iCode = undefined;
     }
 
     /**
@@ -49,7 +49,7 @@ export abstract class Parser implements MessageProducer {
      * @getter
      * @return the intermediate code generated for this parser.
      */
-    public getICode(): ICode {
+    public getICode(): ICode | undefined {
         return this.iCode;
     }
 
@@ -57,7 +57,7 @@ export abstract class Parser implements MessageProducer {
      * @getter
      * @return the symbol table for this parser.
      */
-    public getSymTab(): SymTabStack {
+    public getSymTabStack(): SymTabStack {
         return this.symTabStack;
     }
 

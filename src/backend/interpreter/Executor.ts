@@ -1,8 +1,8 @@
 import {ICode} from "../../intermediate/ICode.ts";
-import {SymTab} from "../../intermediate/SymTab.ts";
 import {Backend} from "../Backend.ts";
 import {Message} from "../../message/Message.ts";
 import {MessageType} from "../../message/MessageType.ts";
+import {SymTabStack} from "../../intermediate/SymTabStack.ts";
 
 export class Executor extends Backend {
 
@@ -12,7 +12,7 @@ export class Executor extends Backend {
      * @param iCode
      * @param symTab
      */
-    public process(iCode: ICode, symTab: SymTab): void {
+    public process(iCode: ICode, symTabStack: SymTabStack): void {
         const startTime = Date.now();
         const endTime = Date.now();
         let elapsedTime = (endTime - startTime)/1000;
