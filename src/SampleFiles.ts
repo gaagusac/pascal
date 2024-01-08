@@ -93,3 +93,113 @@ BEGIN
     UNTIL number = 0
 END.
 `);
+
+filesArray.push(`BEGIN
+    BEGIN {Temperature conversions.}
+        five  := -1 + 2 - 3 + 4 - -3;
+        ratio := five/9.0;
+
+        fahrenheit := 72;
+        centigrade := (((fahrenheit - 32)))*ratio;
+
+        centigrade := 25;;;
+        fahrenheit := centigrade/ratio + 32;
+
+        centigrade := 25
+        fahrenheit := 32 + centigrade/ratio;
+
+        centigrade := 25;
+        fahrenheit := celsius/ratio + 32
+    END
+
+    dze fahrenheit/((ratio - ratio) := ;
+
+END.
+`);
+
+filesArray.push(`BEGIN
+    BEGIN {Temperature conversions.}
+        five  := -1 + 2 - 3 + 4 + 3;
+        ratio := five/9.0;
+
+        fahrenheit := 72;
+        centigrade := (fahrenheit - 32)*ratio;
+
+        centigrade := 25;
+        fahrenheit := centigrade/ratio + 32;
+
+        centigrade := 25;
+        fahrenheit := 32 + centigrade/ratio
+    END;
+
+    {Runtime division by zero error.}
+    dze := fahrenheit/(ratio - ratio);
+
+    BEGIN {Calculate a square root using Newton's method.}
+        number := 2;
+        root := number;
+        root := (number/root + root)/2;
+    END;
+
+    ch  := 'x';
+    str := 'hello, world'
+END.`
+);
+
+filesArray.push(`BEGIN
+    BEGIN
+        a := 0;
+        b := 0;
+        c := 0;
+        d := 0;
+        e := 0;
+        f := a + b + c + d + e;
+    END;
+
+    BEGIN
+        alpha := 10;
+        beta := 20
+    END;
+
+    gamma := 30;
+
+    BEGIN
+        alpha  := -88; 
+        beta   := 99;
+        result := alpha + 3/(beta - gamma) + 5;
+    END
+END.
+`);
+
+filesArray.push(`BEGIN
+    BEGIN {Temperature conversions.}
+        five  := -1 + 2 - 3 + 4 + 3;
+        ratio := five/9.0;
+
+        fahrenheit := 72;
+        centigrade := (fahrenheit - 32)*ratio;
+
+        centigrade := 25;
+        fahrenheit := centigrade/ratio + 32;
+
+        centigrade := 25;
+        fahrenheit := 32 + centigrade/ratio
+    END;
+
+    {Runtime division by zero error.}
+    dze := fahrenheit/(ratio - ratio);
+
+    BEGIN {Calculate a square root using Newton's method.}
+        number := 2;
+        root := number;
+        root := (number/root + root)/2;
+        root := (number/root + root)/2;
+        root := (number/root + root)/2;
+        root := (number/root + root)/2;
+        root := (number/root + root)/2;
+    END;
+
+    ch  := 'x';
+    str := 'hello, world'
+END.
+`);

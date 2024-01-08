@@ -2,6 +2,7 @@ import {ICodeNode} from "../ICodeNode.ts";
 import {ICodeKey} from "../ICodeKey.ts";
 import { ICodeNodeType } from "../ICodeNodeType.ts";
 import {ICodeFactory} from "../ICodeFactory.ts";
+import {ICodeNodeTypeImpl} from "./ICodeNodeTypeImpl.ts";
 
 interface ICodeNodeImplArrayList<K, T> {
     put(key: K, value: T): void;
@@ -104,6 +105,14 @@ export class ICodeNodeImpl implements ICodeNode, ICodeNodeImplArrayList<ICodeKey
         });
 
         return theCopy;
+    }
+
+    public toString(): string {
+        return (this.type as unknown as ICodeNodeTypeImpl).toString();
+    }
+
+    public entrySet(): Map<ICodeKey, any> {
+        return this.attributes;
     }
 
 }

@@ -18,6 +18,7 @@ export class MessageHandler {
         this.listeners = [];
     }
 
+
     /**
      * Add a listener to the listener list.
      * @param listener the listener to add.

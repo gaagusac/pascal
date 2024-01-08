@@ -38,7 +38,7 @@ export abstract class Backend implements MessageProducer {
      * @getter
      * @return the symbol table.
      */
-    public getSymTab(): SymTabStack | undefined {
+    public getSymTabStack(): SymTabStack | undefined {
         return this.symTabStack;
     }
 

@@ -5,7 +5,7 @@ import {PascalScanner} from "./pascal/PascalScanner.ts";
 import {PascalParserTD} from "./pascal/PascalParserTD.ts";
 
 
-export class FronendFactory {
+export class FrontendFactory {
 
     /**
      * Create a parser
@@ -18,7 +18,7 @@ export class FronendFactory {
     public static createParser(language: string, type: string, source:Source): Parser {
         if (language.toLowerCase() === "pascal" && type.toLowerCase() === "top-down") {
             let scanner: Scanner = new PascalScanner(source);
-            return new PascalParserTD(scanner);
+            return new PascalParserTD(scanner as PascalScanner);
         }
         else if (language.toLowerCase() !== "pascal") {
             throw new Error(`Parser factory: Invalid language '${language}'.`);
