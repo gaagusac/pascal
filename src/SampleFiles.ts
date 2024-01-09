@@ -203,3 +203,51 @@ filesArray.push(`BEGIN
     str := 'hello, world'
 END.
 `);
+
+filesArray.push(`BEGIN {REPEAT statements.}
+    i := 0;
+
+    REPEAT
+        j := i;
+        k := i
+    UNTIL i <= j;
+
+    BEGIN {Calculate a square root using Newton's method.}
+        number := 4;
+        root := number;
+
+        REPEAT
+            partial := number/root + root;
+            root := partial/2
+        UNTIL root*root - number < 0.000001
+    END
+END.
+`);
+
+filesArray.push(`BEGIN {REPEAT syntax errors}
+    REPEAT UNTIL five := 5;
+    REPEAT ratio := 9 UNTIL;
+END.
+`);
+
+filesArray.push(`BEGIN {WHILE statements}
+    i := 0;  j := 0;
+
+    WHILE i > j DO k := i;
+
+    BEGIN {Calculate a square root using Newton's method.}
+        number := 2;
+        root := number;
+
+        WHILE root*root - number > 0.000001 DO BEGIN
+            root := (number/root + root)/2
+        END
+    END;
+END.
+`);
+
+filesArray.push(`BEGIN {WHILE syntax errors}
+    WHILE DO five := 5;
+    WHILE five = 5 five := 5 UNTIL five := 9;
+END.
+`);

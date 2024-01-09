@@ -57,7 +57,7 @@ export class ParseTreePrinter {
             this.printLine();
 
             this.printChildNodes(childNodes);
-            this.append(this.indentation); this.append("</ " + node.toString() + ">");
+            this.append(this.indentation); this.append("</" + node.toString() + ">");
         }
 
         // No children: Close off the tag
