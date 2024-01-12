@@ -741,6 +741,15 @@ export class CaseStatementParser extends StatementParser {
         PascalTokenType.MINUS,
         PascalTokenType.STRING
     ]);
+    static {
+        CaseStatementParser.OF_SET.add(PascalTokenType.OF);
+        // StatementParser.STMT_FOLLOW_SET
+        CaseStatementParser.OF_SET.add(PascalTokenType.SEMICOLON);
+        CaseStatementParser.OF_SET.add(PascalTokenType.END);
+        CaseStatementParser.OF_SET.add(PascalTokenType.ELSE);
+        CaseStatementParser.OF_SET.add(PascalTokenType.UNTIL);
+        CaseStatementParser.OF_SET.add(PascalTokenType.DOT);
+    }
 
 
     /**
@@ -756,8 +765,272 @@ export class CaseStatementParser extends StatementParser {
     }
 
 
+    /**
+     * @constructor
+     * @param token the initial token
+     */
     public parse(token: Token): ICodeNode {
-        return super.parse(token);
+        token = this.nextToken(); // consume the CASE
+
+        // Create a SELECT node.
+        let selectNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.SELECT);
+
+        // Parse the CASE expression
+        // The SELECT node adopts the expression subtree as its first child.
+        let expressionParse = new ExpressionParser(this as unknown as PascalParserTD);
+        selectNode.addChild(expressionParse.parse(token));
+
+        // Synchronize at the OF.
+        token = this.synchronize(CaseStatementParser.OF_SET);
+        if (token.getType() === PascalTokenType.OF) {
+            token = this.nextToken(); // consume the OF
+        } else {
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_OF, this as unknown as PascalParserTD);
+        }
+
+        // Set the CASE branch constant.
+        let constantSet = new Set<any>();
+
+        // Loop to parse each CASE branch until the END token.
+        // or the end of the source file.
+        while (!(token instanceof EofToken) && (token.getType() !== PascalTokenType.END)) {
+
+            // The SELECT node adopts the CASE branch subtree.
+            selectNode.addChild(this.parseBranch(token, constantSet));
+
+            token = this.currentToken();
+            let tokenType = token.getType() as PascalTokenType;
+
+            // Look for the semicolon between CASE branches.
+            if (tokenType === PascalTokenType.SEMICOLON) {
+                token = this.nextToken(); // consume the ;
+            }
+
+            // If at the start of the next constant, then missing a semicolon.
+            else if (CaseStatementParser.CONSTANT_START_SET.has(tokenType)) {
+                this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+            }
+        }
+
+        // Look for the END token.
+        if (token.getType() === PascalTokenType.END) {
+            token = this.nextToken(); // consume END
+        } else {
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
+        }
+
+        return selectNode;
+    }
+
+    /**
+     * Parse a CASE branch.
+     * @param token the initial token.
+     * @param constantSet the set of CASE branch constants.
+     * @return the root SELECT_BRANCH node of the subtree.
+     * @private
+     */
+    private parseBranch(token: Token, constantSet: Set<any>): ICodeNode {
+
+        // Create a SELECT_BRANCH node and a SELECT_CONSTANT node.
+        // The SELECT_BRANCH node adopts the SELECT_CONSTANT node as its
+        // first child.
+        let branchNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.SELECT_BRANCH);
+        let constantNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.SELECT_CONSTANTS);
+        branchNode.addChild(constantNode);
+
+        // Parse the list of CASE branch constant.
+        // The SELECT_CONSTANT node adopts each constant.
+        this.parseConstantList(token, constantNode, constantSet);
+
+        // Look for the : token
+        token = this.currentToken();
+        if (token.getType() === PascalTokenType.COLON) {
+            token = this.nextToken(); // consume the :
+        } else {
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_COLON, this as unknown as PascalParserTD);
+        }
+
+        // Parse the CASE branch statement. The SELECT_BRANCH node adopts
+        // the statement subtree as its second child.
+        let statementParser = new StatementParser(this as unknown as PascalParserTD);
+        branchNode.addChild(statementParser.parse(token));
+
+        return branchNode;
+    }
+
+    // Synchronization set for COMMA.
+    private static readonly COMMA_SET = new Set<PascalTokenType>([
+        PascalTokenType.IDENTIFIER,
+        PascalTokenType.INTEGER,
+        PascalTokenType.PLUS,
+        PascalTokenType.MINUS,
+        PascalTokenType.STRING
+    ]);
+    static {
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.COMMA);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.COLON);
+        // StatementParser.STMT_START_SET
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.BEGIN);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.CASE);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.FOR);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.IF);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.REPEAT);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.WHILE);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.IDENTIFIER,);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.SEMICOLON);
+        // StatementParser.STMT_FOLLOW_SET
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.SEMICOLON);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.END);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.ELSE);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.UNTIL);
+        CaseStatementParser.COMMA_SET.add(PascalTokenType.DOT);
+    }
+
+    /**
+     * Parse a list of CASE branch constants.
+     * @param token the current token.
+     * @param constantNode the parent SELECT_CONSTANT node.
+     * @param constantSet the set of CASE branch constants.
+     * @private
+     */
+    private parseConstantList(token: Token, constantNode: ICodeNode, constantSet: Set<any>): void {
+
+        // Loop to parse each constant
+        while (CaseStatementParser.CONSTANT_START_SET.has(token.getType() as PascalTokenType)) {
+
+            // The constants list node adopts the constant node.
+            constantNode.addChild(this.parseConstant(token, constantSet));
+
+            // Synchronize at the comma between constants.
+            token = this.synchronize(CaseStatementParser.COMMA_SET);
+
+            // Look of the comma
+            if (token.getType() === PascalTokenType.COMMA) {
+                token = this.nextToken(); // consume the ,
+            }
+
+            // If at the start of the next constant, then missing a comma.
+            else if (CaseStatementParser.CONSTANT_START_SET.has(token.getType() as PascalTokenType)) {
+                this.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
+            }
+        }
+    }
+
+    /**
+     * Parse CASE branch constant.
+     * @param token the current token.
+     * @param constantSet the set of CASE branch constants.
+     * @return the constant node.
+     * @private
+     */
+    private parseConstant(token: Token, constantSet: Set<any>): ICodeNode {
+        let sign: TokenType = undefined!;
+        let constantNode: ICodeNode = undefined!;
+
+        // Synchronize at the start of a constant
+        token = this.synchronize(CaseStatementParser.CONSTANT_START_SET);
+        let tokenType = token.getType() as PascalTokenType;
+
+        // Plus or minus sign?
+        if ((tokenType === PascalTokenType.PLUS) || (tokenType === PascalTokenType.MINUS)) {
+            sign = tokenType;
+            token = this.nextToken(); // consume sing
+        }
+
+        // Parse the constant.
+        switch (token.getType() as PascalTokenType) {
+
+            case PascalTokenType.IDENTIFIER: {
+                constantNode = this.parseIdentifierConstant(token, sign);
+                break;
+            }
+
+            case PascalTokenType.INTEGER: {
+                constantNode = this.parseIntegerConstant(token.getText(), sign);
+                break;
+            }
+
+            case PascalTokenType.STRING: {
+                constantNode = this.parseCharacterConstant(token, String(token.getValue()), sign);
+                break;
+            }
+
+            default: {
+                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                break;
+            }
+        }
+
+        // Check for reused constants
+        if (constantNode !== undefined) {
+            let value: any = constantNode.getAttribute(ICodeKeyImpl.VALUE);
+
+            if (constantSet.has(value)) {
+                this.errorHandler.flag(token, PascalErrorCode.CASE_CONSTANT_REUSED, this as unknown as PascalParserTD);
+            } else {
+                constantSet.add(value);
+            }
+        }
+
+        this.nextToken(); // consume the constant.
+        return constantNode;
+    }
+
+    /**
+     * Parse an identifier CASE constant.
+     * @param token the current token value string.
+     * @param sign the sing, if any.
+     * @return the constant node.
+     * @private
+     */
+    private parseIdentifierConstant(token: Token, sign: TokenType): ICodeNode {
+        // PlaceHolder: Don't allow for now.
+        this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+        return undefined!;
+    }
+
+    /**
+     * Parse an integer CASE constant.
+     * @param value the current token value string
+     * @param sign the sign if any.
+     * @return the constant node.
+     * @private
+     */
+    private parseIntegerConstant(value: string, sign: TokenType): ICodeNode {
+        let constantNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.INTEGER_CONSTANT);
+        let intValue: number = Number.parseInt(value, 10);
+
+        if (sign === PascalTokenType.MINUS) {
+            intValue = -intValue;
+        }
+
+        constantNode.setAttribute(ICodeKeyImpl.VALUE, intValue);
+        return constantNode;
+    }
+
+    /**
+     * Parse a character CASE constant.
+     * @param token the current token.
+     * @param value the token value string.
+     * @param sign the sing, if any.
+     * @return the constant node.
+     * @private
+     */
+    private parseCharacterConstant(token: Token, value: string, sign: TokenType): ICodeNode {
+        let constantNode: ICodeNode = undefined!;
+
+        if (sign !== undefined) {
+            this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+        } else {
+            if (value.length === 1) {
+                constantNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.STRING_CONSTANT);
+                constantNode.setAttribute(ICodeKeyImpl.VALUE, value);
+            } else {
+                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+            }
+        }
+
+        return constantNode;
     }
 
 }
@@ -769,6 +1042,54 @@ export class CaseStatementParser extends StatementParser {
  */
 export class ForStatementParser extends StatementParser {
 
+
+    // Synchronization set for TO or DOWNTO
+    // The same as the StatementParser.STMT_START_SET
+    private static readonly TO_DOWNTO_SET = new Set<PascalTokenType>([
+        PascalTokenType.PLUS,
+        PascalTokenType.MINUS,
+        PascalTokenType.IDENTIFIER,
+        PascalTokenType.INTEGER,
+        PascalTokenType.REAL,
+        PascalTokenType.STRING,
+        PascalTokenType.NOT,
+        PascalTokenType.LEFT_PAREN
+    ]);
+    static {
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.TO);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.DOWNTO);
+        // StatementParser.STMT_FOLLOW_SET
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.SEMICOLON);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.END);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.ELSE);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.UNTIL);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.DOT);
+    }
+
+    // Synchronization set for DO.
+    private static readonly DO_SET = new Set<PascalTokenType>([
+        PascalTokenType.PLUS,
+        PascalTokenType.MINUS,
+        PascalTokenType.IDENTIFIER,
+        PascalTokenType.INTEGER,
+        PascalTokenType.REAL,
+        PascalTokenType.STRING,
+        PascalTokenType.NOT,
+        PascalTokenType.LEFT_PAREN
+    ]);
+    static {
+        ForStatementParser.DO_SET.add(PascalTokenType.DO);
+        // StatementParser.STMT_FOLLOW_SET
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.SEMICOLON);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.END);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.ELSE);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.UNTIL);
+        ForStatementParser.TO_DOWNTO_SET.add(PascalTokenType.DOT);
+    }
+    /**
+     * @constructor
+     * @param parent the parent parser.
+     */
     constructor(parent: PascalParserTD) {
         super(parent);
         this.messageHandler = parent.getMessageHandler();
@@ -777,8 +1098,105 @@ export class ForStatementParser extends StatementParser {
         this.iCode = parent.getICode();
     }
 
+    /**
+     * Parse the FOR Statement.
+     * @param token the initial token.
+     * @return the root node of the generated parse tree.
+     */
     public parse(token: Token): ICodeNode {
-        return super.parse(token);
+        token = this.nextToken(); // consume the FOR
+        let targetToken = token;
+
+        // Create the loop COMPOUND, LOOP, and TEST nodes.
+        let compoundNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.COMPOUND);
+        let loopNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.LOOP);
+        let testNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.TEST);
+
+        // Parse the embedded initial assignment.
+        let assignmentParser = new AssignmentStatementParser(this as unknown as PascalParserTD);
+        let initAssignNode = assignmentParser.parse(token);
+
+        // Set the current line number attribute
+        this.setLineNumber(initAssignNode, targetToken);
+
+        // The COMPOUND node adopts the initial ASSIGN node and the LOOP node.
+        // as its first and second child.
+        compoundNode.addChild(initAssignNode);
+        compoundNode.addChild(loopNode);
+
+        // Synchronize at the TO or DOWNTO
+        token = this.synchronize(ForStatementParser.TO_DOWNTO_SET);
+        let direction = token.getType() as PascalTokenType;
+
+        // look for the TO or DOWNTO
+        if ((direction === PascalTokenType.TO) || (direction === PascalTokenType.DOWNTO)) {
+            token = this. nextToken(); // consume the TO or DOWNTO
+        } else {
+            direction = PascalTokenType.TO;
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_TO_DOWNTO, this as unknown as PascalParserTD);
+        }
+
+        // Create a reilational operator node: GT for TO, or LT for DOWNTO.
+        let relOpNode = ICodeFactory.createICodeNode(direction === PascalTokenType.TO
+                                                                            ? ICodeNodeTypeImpl.GT
+                                                                            : ICodeNodeTypeImpl.LT);
+
+        // Copy the control VARIABLE node. The relational operator
+        // node adopts the copied VARIABLE node as its first child.
+        let controlVarNode = initAssignNode.getChildren()[0];
+        relOpNode.addChild(controlVarNode.copy());
+
+        // Parse the terminator expression. The relational operator node
+        // adopts the expression as its second child.
+        let expressionParse = new ExpressionParser(this as unknown as PascalParserTD);
+        relOpNode.addChild(expressionParse.parse(token));
+
+        // The TEST node adopts the relational operator node as its only child
+        // the LOOP node adopts the TEST node as its first child.
+        testNode.addChild(relOpNode);
+        loopNode.addChild(testNode);
+
+        // Synchronize at the DO.
+        token = this.synchronize(ForStatementParser.DO_SET);
+        if (token.getType() === PascalTokenType.DO) {
+            token = this.nextToken(); // consume the DO
+        } else {
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_DO, this as unknown as PascalParserTD);
+        }
+
+        // Parse the nested statement. The LOOP node adopts the statement
+        // node as its second child.
+        let statementParser = new StatementParser(this as unknown as PascalParserTD);
+        loopNode.addChild(statementParser.parse(token));
+
+        // Create an assignment with a copy of the control variable
+        // to advance the value of the variable.
+        let nextAssignNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.ASSIGN);
+        nextAssignNode.addChild(controlVarNode.copy());
+
+        // Create the arithmetic operator node:
+        // ADD for TO, or SUBTRACT for DOWNTO.
+        let arithOpNode = ICodeFactory.createICodeNode(direction === PascalTokenType.TO ?
+                                                                                        ICodeNodeTypeImpl.ADD :
+                                                                                        ICodeNodeTypeImpl.SUBTRACT);
+
+        // The operator node adopts a copy of the loop variable as its
+        // first child and the value 1 as its second child.
+        arithOpNode.addChild(controlVarNode.copy());
+        let oneNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.INTEGER_CONSTANT);
+        oneNode.setAttribute(ICodeKeyImpl.VALUE, 1);
+        arithOpNode.addChild(oneNode);
+
+        // The next ASSIGN node adopts the arithmetic operator node as its
+        // second child. The loop adopts the next ASSIGN node as its
+        // third child.
+        nextAssignNode.addChild(arithOpNode);
+        loopNode.addChild(nextAssignNode);
+
+        // Set the current line number attribute.
+        this.setLineNumber(nextAssignNode, targetToken);
+
+        return compoundNode;
     }
 
 }
@@ -790,6 +1208,32 @@ export class ForStatementParser extends StatementParser {
  */
 export class IfStatementParser extends StatementParser {
 
+
+    // Synchronization set for THEN
+    private static readonly THEN_SET = new Set<PascalTokenType>([
+        PascalTokenType.BEGIN,
+        PascalTokenType.CASE,
+        PascalTokenType.FOR,
+        PascalTokenType.IF,
+        PascalTokenType.REPEAT,
+        PascalTokenType.WHILE,
+        PascalTokenType.IDENTIFIER,
+        PascalTokenType.SEMICOLON
+    ]);
+    static {
+        IfStatementParser.THEN_SET.add(PascalTokenType.THEN);
+        // StatementParser.STMT_FOLLOW_SET
+        IfStatementParser.THEN_SET.add(PascalTokenType.SEMICOLON);
+        IfStatementParser.THEN_SET.add(PascalTokenType.END);
+        IfStatementParser.THEN_SET.add(PascalTokenType.ELSE);
+        IfStatementParser.THEN_SET.add(PascalTokenType.UNTIL);
+        IfStatementParser.THEN_SET.add(PascalTokenType.DOT);
+    }
+
+    /**
+     * @constructor
+     * @param parent the parent parser.
+     */
     constructor(parent: PascalParserTD) {
         super(parent);
         this.messageHandler = parent.getMessageHandler();
@@ -799,8 +1243,45 @@ export class IfStatementParser extends StatementParser {
     }
 
 
+    /**
+     * Parse an IF statement.
+     * @param token the initial token.
+     * @return the root node of the generated parse tree.
+     */
     public parse(token: Token): ICodeNode {
-        return super.parse(token);
+        token = this.nextToken(); // consume the IF
+
+        // Create an IF node.
+        let ifNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.IF);
+
+        // Parse the expression
+        // The IF node adopts the expression subtree as its first child.
+        let expressionNode = new ExpressionParser(this as unknown as PascalParserTD);
+        ifNode.addChild(expressionNode.parse(token));
+
+        // Synchronize at the THEN.
+        token = this.synchronize(IfStatementParser.THEN_SET);
+        if (token.getType() === PascalTokenType.THEN) {
+            token = this.nextToken(); // consume the THEN
+        } else {
+            this.errorHandler.flag(token, PascalErrorCode.MISSING_THEN, this as unknown as PascalParserTD);
+        }
+
+        // Parse the THEN statement
+        let statementParser = new StatementParser(this as unknown as PascalParserTD);
+        ifNode.addChild(statementParser.parse(token));
+        token = this.currentToken();
+
+        // Look for the ELSE.
+        if (token.getType() === PascalTokenType.ELSE) {
+            token = this.nextToken(); // consume the THEN
+
+            // Parse the ELSE statement.
+            // The IF node adopts the statement subtree as its third child.
+            ifNode.addChild(statementParser.parse(token));
+        }
+
+        return ifNode;
     }
 }
 

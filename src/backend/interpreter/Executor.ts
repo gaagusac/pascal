@@ -10,6 +10,8 @@ import {ICodeNodeTypeImpl} from "../../intermediate/icodeimpl/ICodeNodeTypeImpl.
 import {RuntimeErrorCode} from "./RuntimeErrorCode.ts";
 import {SymTabEntry} from "../../intermediate/SymTabEntry.ts";
 import {SymTabKeyImpl} from "../../intermediate/symtabimpl/SymTabKeyImpl.ts";
+import {PascalParserTD} from "../../frontend/pascal/PascalParserTD.ts";
+import {ICodeNodeImpl} from "../../intermediate/icodeimpl/ICodeNodeImpl.ts";
 
 export class Executor extends Backend {
 
@@ -88,6 +90,21 @@ class StatementExecutor extends Executor {
             case ICodeNodeTypeImpl.ASSIGN: {
                 let assignmentExecutor = new AssignmentExecutor(this);
                 return assignmentExecutor.execute(node);
+            }
+
+            case ICodeNodeTypeImpl.LOOP: {
+                let loopExecutor = new LoopExecutor(this);
+                return loopExecutor.execute(node);
+            }
+
+            case ICodeNodeTypeImpl.IF: {
+                let ifExecutor = new IfExecutor(this);
+                return ifExecutor.execute(node);
+            }
+
+            case ICodeNodeTypeImpl.SELECT: {
+                let selectExecutor = new SelectExecutor(this);
+                return selectExecutor.execute(node);
             }
 
             case ICodeNodeTypeImpl.NO_OP: {
@@ -436,4 +453,105 @@ class ExpressionExecutor extends StatementExecutor {
         return 0; // should never get here.
     }
 
+}
+
+/**
+ * <h1>LoopExecutor</h1>
+ * <p>Execute a loop statement</p>
+ */
+export class LoopExecutor extends StatementExecutor {
+
+    /**
+     * @constructor
+     * @param parent the parent executor.
+     */
+    constructor(parent: Executor) {
+        super(parent);
+        this.errorHandler = parent.getErrorHandler();
+        this.messageHandler = parent.getMessageHandler();
+    }
+
+
+    /**
+     * Execute a loop statement
+     * @param node the root node of the statement.
+     * @return undefined
+     */
+    public execute(node: ICodeNode): any {
+        let exitLoop = false;
+        let exprNode: ICodeNode = undefined!;
+        let loopChildren = node.getChildren();
+
+        let expressionExecutor = new ExpressionExecutor(this);
+        let statementExecutor = new StatementExecutor(this);
+
+        // Loop until the TEST expression value is true.
+        while (!exitLoop) {
+            ++Executor.executionCount; // count the loop statement itself.
+
+            // Execute the children of the LOOP node.
+            for (let child of loopChildren) {
+                let childType = child.getType() as ICodeNodeTypeImpl;
+
+                // Test node?
+                if (childType === ICodeNodeTypeImpl.TEST) {
+                    if (exprNode === undefined) {
+                        exprNode = child.getChildren()[0];
+                    }
+                    exitLoop = expressionExecutor.execute(exprNode) as boolean;
+                }
+                // Statement node
+                else {
+                    statementExecutor.execute(child);
+                }
+
+                // Exit if the TEST expression value is true.
+                if (exitLoop) {
+                    break;
+                }
+            }
+        }
+
+        return undefined;
+    }
+}
+
+/**
+ * <h1>IfExecutor</h1>
+ * <p>Execute an IF statement</p>
+ */
+export class IfExecutor extends StatementExecutor {
+
+
+    constructor(parent: Executor) {
+        super(parent);
+        this.errorHandler = parent.getErrorHandler();
+        this.messageHandler = parent.getMessageHandler();
+    }
+
+    /**
+     * Execute an IF statement.
+     * @param node the root node of the statement.
+     * @return undefined.
+     */
+    public execute(node: ICodeNode): any {
+        return undefined;
+    }
+}
+
+/**
+ * <h1>SelectExecutor</h1>
+ * <p>Execute a SELECT statement.</p>
+ */
+export class SelectExecutor extends StatementExecutor {
+
+    constructor(parent: Executor) {
+        super(parent);
+        this.errorHandler = parent.getErrorHandler();
+        this.messageHandler = parent.getMessageHandler();
+    }
+
+    public execute(node: ICodeNode): any {
+        return undefined;
+    }
 }

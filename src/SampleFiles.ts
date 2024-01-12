@@ -251,3 +251,95 @@ filesArray.push(`BEGIN {WHILE syntax errors}
     WHILE five = 5 five := 5 UNTIL five := 9;
 END.
 `);
+
+filesArray.push(`BEGIN {FOR statements}
+    j := 1;
+
+    FOR k := j TO 5 DO n := k;
+
+    FOR k := n DOWNTO 1 DO j := k;
+
+    FOR i := 1 TO 2 DO BEGIN
+        FOR j := 1 TO 3 DO BEGIN
+            k := i*j
+        END
+    END
+END.
+`);
+
+filesArray.push(`BEGIN {FOR syntax errors}
+    FOR i := 1, 10 DO five := 5;
+    FOR i = 10 DOWNTO 1 five = 5
+END.
+`);
+
+filesArray.push(`BEGIN {IF statements}
+    i := 3;  j := 4;
+
+    IF i = j THEN t := 200
+             ELSE f := -200;
+
+    IF i < j THEN t := 300;
+
+    {Cascading IF THEN ELSEs.}
+    IF      i = 1 THEN f := 10
+    ELSE IF i = 2 THEN f := 20
+    ELSE IF i = 3 THEN t := 30
+    ELSE IF i = 4 THEN f := 40
+    ELSE               f := -1;
+
+    {The "dandling ELSE".}
+    IF i = 3 THEN IF j = 2 THEN t := 500 ELSE f := -500;
+END.
+`);
+
+filesArray.push(`BEGIN {IF syntax errors}
+    i := 0;
+
+    IF i = 5;
+    IF i := 5 ELSE j := 9;
+    IF i = 5 ELSE j := 9 THEN j := 7;
+END.
+`);
+
+filesArray.push(`BEGIN {CASE statements}
+    i := 3;  ch := 'b';
+
+    CASE i+1 OF
+        1:       j := i;
+        4:       j := 4*i;
+        5, 2, 3: j := 523*i;
+    END;
+
+    CASE ch OF
+        'c', 'b' : str := 'p';
+        'a'      : str := 'q'
+    END;
+
+    FOR i := -5 TO 15 DO BEGIN
+        CASE i OF
+            2: prime := i;
+            -4, -2, 0, 4, 6, 8, 10, 12: even := i;
+            -3, -1, 1, 3, 5, 7, 9, 11:  CASE i OF
+                                            -3, -1, 1, 9:   odd := i;
+                                            2, 3, 5, 7, 11: prime := i;
+                                        END
+        END
+    END
+END.
+`);
+
+filesArray.push(`BEGIN {CASE syntax errors}
+    i := 0;  ch := 'x';  str := 'y';
+
+    CASE i OF
+        1 2 3: j := i;
+        4,1,5  IF j = 5 THEN k := 9;
+    END;
+
+    CASE ch1 OF
+        'x', 'hello', 'y': str := 'world';
+        'z', 'x':          str := 'bye'
+    END
+END.
+`);

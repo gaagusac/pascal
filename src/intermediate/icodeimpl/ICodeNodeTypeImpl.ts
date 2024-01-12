@@ -72,7 +72,7 @@ export class ICodeNodeTypeImpl implements ICodeNodeType {
         ICodeNodeTypeImpl.IF = new ICodeNodeTypeImpl("IF");
         ICodeNodeTypeImpl.SELECT = new ICodeNodeTypeImpl("SELECT");
         ICodeNodeTypeImpl.SELECT_BRANCH = new ICodeNodeTypeImpl("SELECT_BRANCH");
-        ICodeNodeTypeImpl.SELECT_CONSTANTS = new ICodeNodeTypeImpl("SELECT_CONSTANT");
+        ICodeNodeTypeImpl.SELECT_CONSTANTS = new ICodeNodeTypeImpl("SELECT_CONSTANTS");
         ICodeNodeTypeImpl.NO_OP = new ICodeNodeTypeImpl("NO_OP");
 
         ICodeNodeTypeImpl.EQ = new ICodeNodeTypeImpl("EQ");
