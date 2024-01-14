@@ -7,6 +7,19 @@ import {SymTabEntry} from "./SymTabEntry.ts";
  */
 export interface SymTabStack {
 
+
+    /**
+     * @setter
+     * @param entry the symbol table entry for the main program identifier.
+     */
+     setProgramId(entry: SymTabEntry): void;
+
+    /**
+     * @getter
+     * @return the symbol table entry for the main program identifier.
+     */
+    getProgramId(): SymTabEntry;
+
     /**
      * @getter
      * @return the current nesting level.
@@ -18,6 +31,18 @@ export interface SymTabStack {
      * @return the local symbol table.
      */
     getLocalSymTab(): SymTab | undefined ;
+
+    /**
+     * Push a symbol table into the stack.
+     * @param symTab the symbol table.
+     * @return the pushed symbol table.
+     */
+    push(symTab?: SymTab): SymTab;
+
+    /**
+     * Pop a symbol table off the stack.
+     */
+    pop(): SymTab;
 
     /**
      * Create and enter a new entry in the local symbol table.
@@ -36,4 +61,6 @@ export interface SymTabStack {
      * @param name
      */
     lookup(name: string): SymTabEntry | undefined;
+
+
 }

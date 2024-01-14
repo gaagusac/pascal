@@ -7,6 +7,7 @@ import {SymTabStack} from "../SymTabStack.ts";
 interface ArrayList<T> {
     add(symTab: T): void;
     get(n: number): T;
+    remove(): void;
 }
 
 /**
@@ -15,8 +16,9 @@ interface ArrayList<T> {
  */
 export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
 
-    private currentNestingLevel: number;      // current scope nesting level.
-    private _symTabs: SymTab[];               // the symbol table stack data structure. An array.
+    private currentNestingLevel: number;                   // current scope nesting level.
+    private programId: SymTabEntry = undefined!;           // entry for the main program id.
+    private _symTabs: SymTab[];                            // the symbol table stack data structure. An array.
 
     /**
      * @constructor
@@ -25,6 +27,53 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
         this.currentNestingLevel = 0;
         this._symTabs = [];
         this.add(SymTabFactory.createSymTab(this.currentNestingLevel));
+    }
+
+
+    /**
+     * @setter
+     * @param id the symbol table entry for the main program identifier.
+     */
+    setProgramId(id: SymTabEntry): void {
+        this.programId = id;
+    }
+
+    /**
+     * @getter
+     * @return the symbol table entry for the main program identifier.
+     */
+    getProgramId(): SymTabEntry {
+        return this.programId;
+    }
+
+    /**
+     * Push a symbol table onto the symbol table stack.
+     * @param symTab the symbol table to push.
+     * @return the pushed symbol toble.
+     */
+    push(symTab?: SymTab | undefined): SymTab {
+        if (symTab !== undefined) {
+            let symTab = SymTabFactory.createSymTab(++this.currentNestingLevel);
+            this.add(symTab);
+
+            return symTab;
+        } else {
+            ++this.currentNestingLevel;
+            this.add(symTab!);
+
+            return symTab!;
+        }
+    }
+
+    /**
+     * Pop a symbol table off the symbol table stack.
+     * @return the popped symbol table.
+     */
+    pop(): SymTab {
+        let symTab = this.get(this.currentNestingLevel);
+        this.remove();
+
+        return symTab;
     }
 
     /**
@@ -65,7 +114,14 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
      * @return the entry, or null if it does not exist.
      */
     lookup(name: string): SymTabEntry | undefined {
-        return this.lookupLocal(name);
+        let foundEntry: SymTabEntry = undefined!;
+
+        // Search the current and enclosing scopes.
+        for (let i = this.currentNestingLevel; (i >= 0) && (foundEntry !== undefined); --i) {
+            foundEntry = this.get(i).lookup(name)!;
+        }
+
+        return foundEntry;
     }
 
     add(symTab: SymTab): void {
@@ -76,4 +132,7 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
         return this._symTabs[n];
     }
 
+    remove(): void {
+        delete this._symTabs[this.currentNestingLevel--];
+    }
 }

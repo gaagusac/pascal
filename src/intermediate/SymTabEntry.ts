@@ -1,5 +1,7 @@
 import {SymTab} from "./SymTab.ts";
 import {SymTabKey} from "./SymTabKey.ts";
+import {Definition} from "./Definition.ts";
+import {TypeSpec} from "./TypeSpec.ts";
 
 /**
  * <h1>SymTabEntry</h1>
@@ -44,4 +46,28 @@ export interface SymTabEntry {
      * @return the attribute value.
      */
     getAttribute(key: SymTabKey): any;
+
+    /**
+     * @setter
+     * @param definition the definition to set.
+     */
+    setDefinition(definition: Definition): void;
+
+    /**
+     * @getter
+     * @return the definition.
+     */
+    getDefinition(): Definition;
+
+    /**
+     * @setter
+     * @param typeSpec the type specification.
+     */
+    setTypeSpec(typeSpec: TypeSpec): void;
+
+    /**
+     * @getter
+     * @return the type specification.
+     */
+    getTypeSpec(): TypeSpec;
 }

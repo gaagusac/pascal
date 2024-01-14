@@ -10,8 +10,6 @@ import {ICodeNodeTypeImpl} from "../../intermediate/icodeimpl/ICodeNodeTypeImpl.
 import {RuntimeErrorCode} from "./RuntimeErrorCode.ts";
 import {SymTabEntry} from "../../intermediate/SymTabEntry.ts";
 import {SymTabKeyImpl} from "../../intermediate/symtabimpl/SymTabKeyImpl.ts";
-import {PascalParserTD} from "../../frontend/pascal/PascalParserTD.ts";
-import {ICodeNodeImpl} from "../../intermediate/icodeimpl/ICodeNodeImpl.ts";
 
 export class Executor extends Backend {
 
@@ -523,6 +521,10 @@ export class LoopExecutor extends StatementExecutor {
 export class IfExecutor extends StatementExecutor {
 
 
+    /**
+     * @constructor
+     * @param parent the parent executor.
+     */
     constructor(parent: Executor) {
         super(parent);
         this.errorHandler = parent.getErrorHandler();
@@ -535,6 +537,24 @@ export class IfExecutor extends StatementExecutor {
      * @return undefined.
      */
     public execute(node: ICodeNode): any {
+        // Get the IF node's children.
+        let children = node.getChildren();
+        let exprNode = children[0];
+        let thenStmtNode = children[1];
+        let elseStmtNode = children.length > 2 ? children[2] : undefined;
+
+        let expressionExecutor = new ExpressionExecutor(this);
+        let statementExecutor = new StatementExecutor(this);
+
+        // Evaluate the expression to determine which statement to execute.
+        let b = Boolean(expressionExecutor.execute(exprNode));
+        if (b) {
+            statementExecutor.execute(thenStmtNode);
+        } else if (elseStmtNode !== undefined) {
+            statementExecutor.execute(elseStmtNode);
+        }
+
+        ++IfExecutor.executionCount;
         return undefined;
     }
 }
@@ -545,13 +565,97 @@ export class IfExecutor extends StatementExecutor {
  */
 export class SelectExecutor extends StatementExecutor {
 
+    /**
+     * @constructor
+     * @param parent the parent executor.
+     */
     constructor(parent: Executor) {
         super(parent);
         this.errorHandler = parent.getErrorHandler();
         this.messageHandler = parent.getMessageHandler();
     }
 
+    /**
+     * Execute SELECT statement.
+     * @param node the root node of the statement.
+     * @return undefined
+     */
     public execute(node: ICodeNode): any {
+        // Get the SELECT node's children.
+        let selectChildren = node.getChildren();
+        let exprNode = selectChildren[0];
+
+        // Evaluate the SELECT expression
+        let expressionExecutor = new ExpressionExecutor(this);
+        let selectValue: any = expressionExecutor.execute(exprNode);
+
+        // Attempt to select a SELECT_BRANCH
+        let selectedBranchNode = this.searchBranches(selectValue, selectChildren);
+
+        // If there was a selection, execute the SELECT_BRANCH's statement.
+        if (selectedBranchNode !== undefined) {
+            let stmtNode = selectedBranchNode.getChildren()[1];
+            let statementExecutor = new StatementExecutor(this);
+            statementExecutor.execute(stmtNode);
+        }
+
+        ++SelectExecutor.executionCount;
         return undefined;
+    }
+
+    /**
+     * Search the SELECT_BRANCHes to find a match.
+     * @param selectValue the value to match.
+     * @param selectChildren the children of the SELECT node.
+     * @return the matched node.
+     * @private
+     */
+    private searchBranches(selectValue: any, selectChildren: ICodeNode[]): ICodeNode | undefined {
+        // Loop over the SELECT_BRANCHes to find a match
+        for (let i = 1; i < selectChildren.length; ++i) {
+            let branchNode = selectChildren[i];
+
+            if (this.searchConstants(selectValue, branchNode)) {
+                return branchNode;
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Search the constants of a SELECT_BRANC for a matching value.
+     * @param selectValue the value to match.
+     * @param branchNode the SELECT_BRANCH node.
+     * @return boolean true if found false otherwise.
+     * @private
+     */
+    private searchConstants(selectValue: any, branchNode: ICodeNode): boolean {
+        // Are the values integer or string.
+        let integerMode = selectValue instanceof Number;
+
+        // Get the list of SELECT_CONSTANTS values.
+        let constantsNode = branchNode.getChildren()[0];
+        let constantsList = constantsNode.getChildren();
+
+        // Search the list of constants.
+        if (integerMode) {
+            for (let constantNode of constantsList) {
+                let constant = Number.parseInt(constantNode.getAttribute(ICodeKeyImpl.VALUE), 10);
+                if (Number.parseInt(selectValue, 10) === constant) {
+                    return true; // match
+                }
+            }
+        } else {
+            for (let constantNode of constantsList) {
+                let constant = String(constantNode.getAttribute(ICodeKeyImpl.VALUE));
+
+                if (String(selectValue) === constant) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
