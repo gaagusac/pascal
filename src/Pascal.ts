@@ -11,7 +11,7 @@ import {BackendFactory} from "./backend/BackendFactory.ts";
 import {TokenType} from "./frontend/Token.ts";
 import {PascalTokenType} from "./frontend/pascal/PascalTokenType.ts";
 import {SymTabStack} from "./intermediate/SymTabStack.ts";
-import {printSymbolTable} from "./util/CorssReferencer.ts";
+import {SymTabKeyImpl} from "./intermediate/symtabimpl/SymTabKeyImpl.ts";
 import {ParseTreePrinter} from "./util/ParseTreePrinter.ts";
 
 
@@ -31,35 +31,54 @@ sourceList.addEventListener('change', () => {
 
 class Pascal {
 
-    private parser: Parser;       // language-independent parser.
-    private source: Source;       // language-independent scanner.
-    private iCode: ICode;         // generated intermediate code.
+    private parser: Parser;                 // language-independent parser.
+    private source: Source;                 // language-independent scanner.
+    private iCode: ICode;                   // generated intermediate code.
     private symTabStack: SymTabStack;       // generated symbol table.
-    private backEnd: Backend;     // backend.
+    private backEnd: Backend;               // backend.
 
 
     public constructor(operation: string, code: string) {
+        // Set the intermediate code and the symbol table as undefined for now.
+        this.iCode = undefined!;
+        this.symTabStack = undefined!;
+
+        // Create and add a listener to the source.
         this.source = new Source(code);
         this.source.addMessageListener(new SourceMessageListener());
+
+        // Create and add a listener to the parser.
         this.parser = FrontendFactory.createParser("pascal", "top-down", this.source);
         this.parser.addMessageListener(new ParserMessageListener());
-        this.parser.parse();
+
+        // Create and add a listener to the back end.
         this.backEnd = BackendFactory.createBackend(operation);
         this.backEnd.addMessageListener(new BackendMessageListener());
-        this.iCode = this.parser.getICode() as ICode;
-        this.symTabStack = this.parser.getSymTabStack();
 
-        const xref = document.querySelector("#crossreference__cbox") as HTMLInputElement;
-        if (xref.checked) {
-            printSymbolTable(this.symTabStack);
-        }
+        // Begin to parse the source language.
+        this.parser.parse();
 
-        const interForm = document.querySelector("#intermediate__cbox") as HTMLInputElement;
-        if (interForm.checked) {
-            let treePrinter = new ParseTreePrinter();
-            treePrinter.print(this.iCode);
+        // If there were no errors while parsing...
+        if (this.parser.getErrorCount() === 0) {
+            this.symTabStack = this.parser.getSymTabStack();
+
+            let programId = this.symTabStack.getProgramId();
+            this.iCode = programId.getAttribute(SymTabKeyImpl.ROUTINE_ICODE);
+
+            const xref = document.querySelector("#crossreference__cbox") as HTMLInputElement;
+            if (xref.checked) {
+                // printSymbolTable(this.symTabStack);
+            }
+
+            const interForm = document.querySelector("#intermediate__cbox") as HTMLInputElement;
+            if (interForm.checked) {
+                // let treePrinter = new ParseTreePrinter();
+                // treePrinter.print(programId.getAttribute(SymTabKeyImpl.ROUTINE_SYMTAB));
+                // let treePrinter = new ParseTreePrinter();
+                // treePrinter.print(this.iCode);
+            }
+            this.backEnd.process(this.iCode, this.symTabStack);
         }
-        this.backEnd.process(this.iCode, this.symTabStack);
     }
 }
 

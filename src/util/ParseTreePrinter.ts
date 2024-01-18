@@ -1,8 +1,10 @@
-import {ICode} from "../intermediate/ICode.ts";
 import {ICodeNodeImpl} from "../intermediate/icodeimpl/ICodeNodeImpl.ts";
 import {ICodeKeyImpl} from "../intermediate/icodeimpl/ICodeKeyImpl.ts";
 import {SymTabEntryImpl} from "../intermediate/symtabimpl/SymTabEntryImpl.ts";
 import {ICodeNode} from "../intermediate/ICodeNode.ts";
+import {SymTabStack} from "../intermediate/SymTabStack.ts";
+import {SymTabEntry} from "../intermediate/SymTabEntry.ts";
+import {SymTabKeyImpl} from "../intermediate/symtabimpl/SymTabKeyImpl.ts";
 
 
 export class ParseTreePrinter {
@@ -30,11 +32,39 @@ export class ParseTreePrinter {
      * Print the intermediate code as a parse tree.
      * @param iCode
      */
-    public print(iCode: ICode): void {
+    public print(symTabStack: SymTabStack): void {
         console.log("\n============ INTERMEDIATE CODE ==============\n");
 
-        this.printNode(iCode.getRoot() as ICodeNodeImpl);
+        let programId = symTabStack.getProgramId();
+
+        this.printRoutine(programId);
         console.log("\n");
+    }
+
+
+    /**
+     * Print the parse tree for a routine.
+     * @param routineId the routine identifier's symbol entry.
+     * @private
+     */
+    private printRoutine(routineId: SymTabEntry): void {
+        let definition = routineId.getDefinition();
+        console.log(`\n*** ${definition.getText()} ${routineId.getName()} ***\n`);
+
+        // Print the intermediate code in the routine's symbol table entry.
+        let iCode = routineId.getAttribute(SymTabKeyImpl.ROUTINE_ICODE);
+        if (iCode.getRoot() !== undefined) {
+            this.printNode(iCode.getRoot() as ICodeNodeImpl);
+        }
+
+        // Print any procedures and functions defined in this routine.
+        let routineIds = routineId.getAttribute(SymTabKeyImpl.ROUTINE_ROUTINES) as SymTabEntry[];
+        if (routineIds.length !== 0) {
+            for (let rtnId of routineIds) {
+                this.printRoutine(rtnId);
+            }
+        }
+
     }
 
     /**

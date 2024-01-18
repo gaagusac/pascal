@@ -7,7 +7,6 @@ import {PascalErrorHandler} from "./PascalErrorHandler.ts";
 import {PascalErrorCode} from "./PascalErrorCode.ts";
 import {ICodeFactory} from "../../intermediate/ICodeFactory.ts";
 import {ICodeNode} from "../../intermediate/ICodeNode.ts";
-import {PascalScanner} from "./PascalScanner.ts";
 import {ICodeNodeTypeImpl} from "../../intermediate/icodeimpl/ICodeNodeTypeImpl.ts";
 import {ICodeKeyImpl} from "../../intermediate/icodeimpl/ICodeKeyImpl.ts";
 import {EofToken} from "../EofToken.ts";
@@ -21,19 +20,18 @@ import {Definition} from "../../intermediate/Definition.ts";
 import {TypeFactory} from "../../intermediate/TypeFactory.ts";
 import {TypeFormImpl} from "../../intermediate/typeimpl/TypeFormImpl.ts";
 import {TypeKeyImpl} from "../../intermediate/typeimpl/TypeKeyImpl.ts";
+import {Scanner} from "../Scanner.ts";
 
 export class PascalParserTD extends Parser {
 
-    protected errorHandler: PascalErrorHandler = new PascalErrorHandler();
+    protected static errorHandler: PascalErrorHandler = new PascalErrorHandler();
     private routineId: SymTabEntry = undefined!;     // Name of the routine being parsed.
-
-
     /**
      * @constructor
      * @param scanner the scanner to be used with this parser.
      */
-    constructor(arg: PascalScanner | PascalParserTD) {
-        super(arg instanceof PascalScanner ? arg : arg.getScanner());
+    constructor(scanner: Scanner) {
+        super(scanner);
     }
 
     /**
@@ -41,7 +39,7 @@ export class PascalParserTD extends Parser {
      * @return the error handler.
      */
     public getErrorHandler(): PascalErrorHandler {
-        return this.errorHandler;
+        return PascalParserTD.errorHandler;
     }
 
     /**
@@ -60,18 +58,21 @@ export class PascalParserTD extends Parser {
     public parse(): void {
 
         const starTime = Date.now();
-        this.iCode = ICodeFactory.createICode();
-        Predefined.initialize(this.symTabStack);
+        let iCode = ICodeFactory.createICode();
+        Predefined.initialize(this.getSymTabStack());
 
         // Create a dummy program identifier symbol table entry.
-        this.routineId = this.symTabStack.enterLocal("DummyProgramName".toLowerCase())!;
+        this.routineId = this.getSymTabStack().enterLocal("DummyProgramName".toLowerCase())!;
         this.routineId.setDefinition(DefinitionImpl.PROGRAM);
-        this.symTabStack.setProgramId(this.routineId);
+        this.getSymTabStack().setProgramId(this.routineId);
+
+        // console.log(JSON.stringify(this.getSymTabStack().getProgramId(), null, 4));
+        // console.log(JSON.stringify(this.getSymTabStack(), null, 4));
 
         // Push a new symbol table onto the symbol table stack and set
         // the routine's symbol table and intermediate code.
-        this.routineId.setAttribute(SymTabKeyImpl.ROUTINE_SYMTAB, this.symTabStack.push());
-        this.routineId.setAttribute(SymTabKeyImpl.ROUTINE_ICODE, this.iCode);
+        this.routineId.setAttribute(SymTabKeyImpl.ROUTINE_SYMTAB, PascalParserTD.symTabStack.push());
+        this.routineId.setAttribute(SymTabKeyImpl.ROUTINE_ICODE, iCode);
 
         let blockParser = new BlockParser(this as unknown as PascalParserTD);
 
@@ -79,13 +80,13 @@ export class PascalParserTD extends Parser {
 
         // Parse a block.
         let rootNode = blockParser.parse(token, this.routineId);
-        this.iCode.setRoot(rootNode);
-        this.symTabStack.pop();
+        iCode.setRoot(rootNode);
+        PascalParserTD.symTabStack.pop();
 
         // Look for the final period.
         token = this.currentToken();
         if (token.getType() !== PascalTokenType.DOT) {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_PERIOD, this as unknown as PascalParserTD);
+            PascalParserTD.errorHandler.flag(token, PascalErrorCode.MISSING_PERIOD, this as unknown as PascalParserTD);
         }
         token = this.currentToken();
 
@@ -104,7 +105,7 @@ export class PascalParserTD extends Parser {
      * @return the error count for this parser.
      */
     public getErrorCount(): number {
-        return this.errorHandler.getErrorCount();
+        return PascalParserTD.errorHandler.getErrorCount();
     }
 
 
@@ -121,7 +122,7 @@ export class PascalParserTD extends Parser {
         if (!syncSet.has(token.getType() as PascalTokenType)) {
 
             // Flag the unexpected token.
-            this.errorHandler.flag(token, PascalErrorCode.UNEXPECTED_TOKEN, this as unknown as PascalParserTD);
+            PascalParserTD.errorHandler.flag(token, PascalErrorCode.UNEXPECTED_TOKEN, this as unknown as PascalParserTD);
 
             // Recover by skipping tokens that are not
             // in the synchronization set.
@@ -154,7 +155,7 @@ export class StatementParser extends PascalParserTD {
     ]);
 
     // Synchronization set for following a statement.
-    private static readonly STMT_FOLLOW_SET = new Set<PascalTokenType>([
+    public static readonly STMT_FOLLOW_SET = new Set<PascalTokenType>([
         PascalTokenType.SEMICOLON,
         PascalTokenType.END,
         PascalTokenType.ELSE,
@@ -168,11 +169,7 @@ export class StatementParser extends PascalParserTD {
      * @param parent the parent parser.
      */
     constructor(parent: PascalParserTD) {
-        super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
+        super(parent.getScanner());
     }
 
     /**
@@ -284,7 +281,7 @@ export class StatementParser extends PascalParserTD {
 
             // If at the start of the next statement, then missing a semicolon.
             else if (StatementParser.STMT_START_SET.has(tokenType)) {
-                    this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+                    StatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
             }
 
             // Synchronize at the start of the next statement
@@ -296,7 +293,7 @@ export class StatementParser extends PascalParserTD {
         if (token.getType() === terminator) {
             token = this.nextToken();   // consume the terminator token.
         } else {
-            this.errorHandler.flag(token, errorCode, this as unknown as PascalParserTD);
+            StatementParser.errorHandler.flag(token, errorCode, this as unknown as PascalParserTD);
         }
     }
 }
@@ -309,7 +306,7 @@ export class AssignmentStatementParser extends StatementParser {
 
 
     // Synchronization set for the := token.
-    private static readonly COLON_EQUALS_SET = new Set<PascalTokenType>([
+    public static readonly COLON_EQUALS_SET = new Set<PascalTokenType>([
         PascalTokenType.PLUS,
         PascalTokenType.MINUS,
         PascalTokenType.IDENTIFIER,
@@ -336,10 +333,6 @@ export class AssignmentStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -356,9 +349,9 @@ export class AssignmentStatementParser extends StatementParser {
         // Look up the target identifier in the symbol table stack.
         // Enter the identifier into the table if it's not found.
         let targetName = token.getText().toLowerCase();
-        let targetId = this.symTabStack.lookup(targetName);
+        let targetId = AssignmentStatementParser.symTabStack.lookup(targetName);
         if (targetId === undefined) {
-            targetId = this.symTabStack.enterLocal(targetName);
+            targetId = AssignmentStatementParser.symTabStack.enterLocal(targetName);
         }
         targetId?.appendLineNumber(token.getLineNum());
 
@@ -376,7 +369,7 @@ export class AssignmentStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.COLON_EQUALS) {
             token = this.nextToken(); // consume the :=
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_COLON_EQUALS, this as unknown as PascalParserTD);
+            AssignmentStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_COLON_EQUALS, this as unknown as PascalParserTD);
         }
 
         // Parse the expression. The ASSIGN node adopts the expression's
@@ -400,10 +393,6 @@ export class CompoundStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -431,7 +420,6 @@ export class CompoundStatementParser extends StatementParser {
  * <p>Parse a Pascal expression.</p>
  */
 export class ExpressionParser extends StatementParser {
-
 
     // Synchronization set for starting an expression.
     public static readonly EXPR_START_SET = new Set<PascalTokenType>([
@@ -473,10 +461,6 @@ export class ExpressionParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -664,10 +648,10 @@ export class ExpressionParser extends StatementParser {
                 // Look up the identifier in the symbol table stack.
                 // Flag the identifier as undefined if it's not found.
                 let name = token.getText().toLowerCase();
-                let id = this.symTabStack.lookup(name);
+                let id = ExpressionParser.symTabStack.lookup(name);
                 if (id === undefined) {
-                    this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
-                    id = this.symTabStack.enterLocal(name);
+                    ExpressionParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+                    id = ExpressionParser.symTabStack.enterLocal(name);
                 }
 
                 rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.VARIABLE);
@@ -731,14 +715,14 @@ export class ExpressionParser extends StatementParser {
                 if (token.getType() === PascalTokenType.RIGHT_PAREN) {
                     token = this.nextToken(); // consume the )
                 } else {
-                    this.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_PAREN, this as unknown as PascalParserTD);
+                    ExpressionParser.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_PAREN, this as unknown as PascalParserTD);
                 }
 
                 break;
             }
 
             default: {
-                this.errorHandler.flag(token, PascalErrorCode.UNEXPECTED_TOKEN, this as unknown as PascalParserTD);
+                ExpressionParser.errorHandler.flag(token, PascalErrorCode.UNEXPECTED_TOKEN, this as unknown as PascalParserTD);
                 break;
             }
         }
@@ -788,10 +772,6 @@ export class CaseStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -815,7 +795,7 @@ export class CaseStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.OF) {
             token = this.nextToken(); // consume the OF
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_OF, this as unknown as PascalParserTD);
+            CaseStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_OF, this as unknown as PascalParserTD);
         }
 
         // Set the CASE branch constant.
@@ -838,7 +818,7 @@ export class CaseStatementParser extends StatementParser {
 
             // If at the start of the next constant, then missing a semicolon.
             else if (CaseStatementParser.CONSTANT_START_SET.has(tokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+                CaseStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
             }
         }
 
@@ -846,7 +826,7 @@ export class CaseStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.END) {
             token = this.nextToken(); // consume END
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
+            CaseStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
         }
 
         return selectNode;
@@ -877,7 +857,7 @@ export class CaseStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.COLON) {
             token = this.nextToken(); // consume the :
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_COLON, this as unknown as PascalParserTD);
+            CaseStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_COLON, this as unknown as PascalParserTD);
         }
 
         // Parse the CASE branch statement. The SELECT_BRANCH node adopts
@@ -941,7 +921,7 @@ export class CaseStatementParser extends StatementParser {
 
             // If at the start of the next constant, then missing a comma.
             else if (CaseStatementParser.CONSTANT_START_SET.has(token.getType() as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
+                CaseStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
             }
         }
     }
@@ -986,7 +966,7 @@ export class CaseStatementParser extends StatementParser {
             }
 
             default: {
-                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                CaseStatementParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
                 break;
             }
         }
@@ -996,7 +976,7 @@ export class CaseStatementParser extends StatementParser {
             let value: any = constantNode.getAttribute(ICodeKeyImpl.VALUE);
 
             if (constantSet.has(value)) {
-                this.errorHandler.flag(token, PascalErrorCode.CASE_CONSTANT_REUSED, this as unknown as PascalParserTD);
+                CaseStatementParser.errorHandler.flag(token, PascalErrorCode.CASE_CONSTANT_REUSED, this as unknown as PascalParserTD);
             } else {
                 constantSet.add(value);
             }
@@ -1015,7 +995,7 @@ export class CaseStatementParser extends StatementParser {
      */
     private parseIdentifierConstant(token: Token, sign: TokenType): ICodeNode {
         // PlaceHolder: Don't allow for now.
-        this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+        CaseStatementParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
         return undefined!;
     }
 
@@ -1050,13 +1030,13 @@ export class CaseStatementParser extends StatementParser {
         let constantNode: ICodeNode = undefined!;
 
         if (sign !== undefined) {
-            this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+            CaseStatementParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
         } else {
             if (value.length === 1) {
                 constantNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.STRING_CONSTANT);
                 constantNode.setAttribute(ICodeKeyImpl.VALUE, value);
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                CaseStatementParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
             }
         }
 
@@ -1075,7 +1055,7 @@ export class ForStatementParser extends StatementParser {
 
     // Synchronization set for TO or DOWNTO
     // The same as the StatementParser.STMT_START_SET
-    private static readonly TO_DOWNTO_SET = new Set<PascalTokenType>([
+    public static readonly TO_DOWNTO_SET = new Set<PascalTokenType>([
         PascalTokenType.PLUS,
         PascalTokenType.MINUS,
         PascalTokenType.IDENTIFIER,
@@ -1097,15 +1077,16 @@ export class ForStatementParser extends StatementParser {
     }
 
     // Synchronization set for DO.
-    private static readonly DO_SET = new Set<PascalTokenType>([
-        PascalTokenType.PLUS,
-        PascalTokenType.MINUS,
+    public static readonly DO_SET = new Set<PascalTokenType>([
+        // StatementParser.STMT_START_SET
+        PascalTokenType.BEGIN,
+        PascalTokenType.CASE,
+        PascalTokenType.FOR,
+        PascalTokenType.IF,
+        PascalTokenType.REPEAT,
+        PascalTokenType.WHILE,
         PascalTokenType.IDENTIFIER,
-        PascalTokenType.INTEGER,
-        PascalTokenType.REAL,
-        PascalTokenType.STRING,
-        PascalTokenType.NOT,
-        PascalTokenType.LEFT_PAREN
+        PascalTokenType.SEMICOLON
     ]);
     static {
         ForStatementParser.DO_SET.add(PascalTokenType.DO);
@@ -1122,10 +1103,6 @@ export class ForStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -1163,10 +1140,10 @@ export class ForStatementParser extends StatementParser {
             token = this. nextToken(); // consume the TO or DOWNTO
         } else {
             direction = PascalTokenType.TO;
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_TO_DOWNTO, this as unknown as PascalParserTD);
+            ForStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_TO_DOWNTO, this as unknown as PascalParserTD);
         }
 
-        // Create a reilational operator node: GT for TO, or LT for DOWNTO.
+        // Create a relational operator node: GT for TO, or LT for DOWNTO.
         let relOpNode = ICodeFactory.createICodeNode(direction === PascalTokenType.TO
                                                                             ? ICodeNodeTypeImpl.GT
                                                                             : ICodeNodeTypeImpl.LT);
@@ -1191,7 +1168,7 @@ export class ForStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.DO) {
             token = this.nextToken(); // consume the DO
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_DO, this as unknown as PascalParserTD);
+            ForStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_DO, this as unknown as PascalParserTD);
         }
 
         // Parse the nested statement. The LOOP node adopts the statement
@@ -1238,7 +1215,6 @@ export class ForStatementParser extends StatementParser {
  */
 export class IfStatementParser extends StatementParser {
 
-
     // Synchronization set for THEN
     private static readonly THEN_SET = new Set<PascalTokenType>([
         PascalTokenType.BEGIN,
@@ -1266,10 +1242,6 @@ export class IfStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -1294,7 +1266,7 @@ export class IfStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.THEN) {
             token = this.nextToken(); // consume the THEN
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_THEN, this as unknown as PascalParserTD);
+            IfStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_THEN, this as unknown as PascalParserTD);
         }
 
         // Parse the THEN statement
@@ -1327,10 +1299,6 @@ export class RepeatStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -1371,6 +1339,7 @@ export class WhileStatementParser extends StatementParser {
 
     // Synchronization set for DO.
     private static readonly DO_SET = new Set<PascalTokenType>([
+        // StatementParser.STMT_START_SET
         PascalTokenType.BEGIN,
         PascalTokenType.CASE,
         PascalTokenType.FOR,
@@ -1396,12 +1365,7 @@ export class WhileStatementParser extends StatementParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
-
 
     /**
      * Parse a WHILE statement.
@@ -1431,7 +1395,7 @@ export class WhileStatementParser extends StatementParser {
         if (token.getType() === PascalTokenType.DO) {
             token = this.nextToken(); // consume the DO.
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_DO, this as unknown as PascalParserTD);
+            WhileStatementParser.errorHandler.flag(token, PascalErrorCode.MISSING_DO, this as unknown as PascalParserTD);
         }
 
         // Parse the statement.
@@ -1455,11 +1419,7 @@ export class BlockParser extends PascalParserTD {
      * @param parent the parent parser.
      */
     constructor(parent: PascalParserTD) {
-        super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
+        super(parent.getScanner());
     }
 
     /**
@@ -1470,7 +1430,7 @@ export class BlockParser extends PascalParserTD {
      */
     // @ts-ignore
     public parse(token: Token, routineId: SymTabEntry): ICodeNode {
-        let declarationParser = new DeclarationParser(this as unknown as PascalParserTD);
+        let declarationParser = new DeclarationsParser(this as unknown as PascalParserTD);
         let statementParser = new StatementParser(this as unknown as PascalParserTD);
 
         // Parse any declaration.
@@ -1486,7 +1446,7 @@ export class BlockParser extends PascalParserTD {
         }
         // Missing BEGIN: Attempt to parse anyway if possible.
         else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_BEGIN, this as unknown as PascalParserTD);
+            BlockParser.errorHandler.flag(token, PascalErrorCode.MISSING_BEGIN, this as unknown as PascalParserTD);
 
             if (StatementParser.STMT_START_SET.has(tokenType as PascalTokenType)) {
                 rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.COMPOUND);
@@ -1502,7 +1462,7 @@ export class BlockParser extends PascalParserTD {
  * <h1>DeclarationParser</h1>
  * <p>Parse Pascal declarations.</p>
  */
-export class DeclarationParser extends PascalParserTD {
+export class DeclarationsParser extends PascalParserTD {
 
     public static readonly DECLARATION_START_SET = new Set<PascalTokenType>([
         PascalTokenType.CONST,
@@ -1539,11 +1499,7 @@ export class DeclarationParser extends PascalParserTD {
      * @param parent
      */
     constructor(parent: PascalParserTD) {
-        super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
+        super(parent.getScanner());
     }
 
     /**
@@ -1553,7 +1509,7 @@ export class DeclarationParser extends PascalParserTD {
      */
     // @ts-ignore
     public parse(token: Token): void {
-        token = this.synchronize(DeclarationParser.DECLARATION_START_SET);
+        token = this.synchronize(DeclarationsParser.DECLARATION_START_SET);
 
         if (token.getType() === PascalTokenType.CONST) {
             token = this.nextToken(); // consume CONST.
@@ -1562,7 +1518,7 @@ export class DeclarationParser extends PascalParserTD {
             constantDefinitionsParser.parse(token);
         }
 
-        token = this.synchronize(DeclarationParser.TYPE_START_SET);
+        token = this.synchronize(DeclarationsParser.TYPE_START_SET);
 
         if (token.getType() === PascalTokenType.TYPE) {
             token = this.nextToken(); // consume the TYPE
@@ -1571,7 +1527,7 @@ export class DeclarationParser extends PascalParserTD {
             typeDefinitionsParser.parse(token);
         }
 
-        token = this.synchronize(DeclarationParser.VAR_START_SET);
+        token = this.synchronize(DeclarationsParser.VAR_START_SET);
 
         if (token.getType() === PascalTokenType.VAR) {
 
@@ -1582,15 +1538,16 @@ export class DeclarationParser extends PascalParserTD {
             variableDeclarationsParser.parse(token);
         }
 
-        token = this.synchronize(DeclarationParser.ROUTINE_START_SET);
+        token = this.synchronize(DeclarationsParser.ROUTINE_START_SET);
     }
 }
 
-export class ConstantDefinitionsParser extends DeclarationParser {
+export class ConstantDefinitionsParser extends DeclarationsParser {
 
 
     // Synchronization set for a constant identifier.
     public static readonly IDENTIFIER_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.TYPE_START_SET
         PascalTokenType.TYPE,
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
@@ -1624,6 +1581,7 @@ export class ConstantDefinitionsParser extends DeclarationParser {
 
     // Synchronization set for the start of the next definition or declaration.
     public static readonly NEXT_START_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.TYPE_START_SET
         PascalTokenType.TYPE,
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
@@ -1639,10 +1597,6 @@ export class ConstantDefinitionsParser extends DeclarationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -1657,15 +1611,15 @@ export class ConstantDefinitionsParser extends DeclarationParser {
         // separated by semicolons.
         while (token.getType() === PascalTokenType.IDENTIFIER) {
             let name = token.getText().toLowerCase();
-            let constantId = this.symTabStack.lookupLocal(name);
+            let constantId = ConstantDefinitionsParser.symTabStack.lookupLocal(name);
 
             // Enter the new identifier into the symbol table
             // but don't set how it's defined yet.
             if (constantId === undefined) {
-                constantId = this.symTabStack.enterLocal(name);
+                constantId = ConstantDefinitionsParser.symTabStack.enterLocal(name);
                 constantId?.appendLineNumber(token.getLineNum());
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
+                ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
                 constantId = undefined!;
             }
 
@@ -1676,7 +1630,7 @@ export class ConstantDefinitionsParser extends DeclarationParser {
             if (token.getType() === PascalTokenType.EQUALS) {
                 token = this.nextToken(); // consume the =
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_EQUALS, this as unknown as PascalParserTD);
+                ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_EQUALS, this as unknown as PascalParserTD);
             }
 
             // Parse the constant value
@@ -1708,7 +1662,7 @@ export class ConstantDefinitionsParser extends DeclarationParser {
             // If at the start of the next definition or declaration,
             // then missing a semicolon.
             else if (ConstantDefinitionsParser.NEXT_START_SET.has(tokenType as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+                ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
             }
             token = this.synchronize(ConstantDefinitionsParser.IDENTIFIER_SET);
         }
@@ -1754,7 +1708,7 @@ export class ConstantDefinitionsParser extends DeclarationParser {
 
             case PascalTokenType.STRING: {
                 if (sign !== undefined) {
-                    this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                    ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
                 }
 
                 this.nextToken(); // consume the string.
@@ -1762,7 +1716,7 @@ export class ConstantDefinitionsParser extends DeclarationParser {
             }
 
             default: {
-                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
                 return undefined;
             }
         }
@@ -1778,20 +1732,20 @@ export class ConstantDefinitionsParser extends DeclarationParser {
      */
     public parseIdentifierConstant(token: Token, sign: TokenType): any {
         let name = token.getText().toLowerCase();
-        let id = this.symTabStack.lookup(name);
+        let id = ConstantDefinitionsParser.symTabStack.lookup(name);
 
         this.nextToken(); // consume the identifier.
 
         // The identifier must have already been defined.
         // as a constant identifier.
         if (id === undefined) {
-            this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+            ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
             return undefined;
         }
 
-        let defintion = id.getDefinition();
+        let definition = id.getDefinition();
 
-        if (defintion === DefinitionImpl.CONSTANT) {
+        if (definition === DefinitionImpl.CONSTANT) {
             let value = id.getAttribute(SymTabKeyImpl.CONSTANT_VALUE);
             id.appendLineNumber(token.getLineNum());
 
@@ -1799,45 +1753,44 @@ export class ConstantDefinitionsParser extends DeclarationParser {
                 return sign === PascalTokenType.MINUS ? Number(-value) : Number(value);
             } else if (value instanceof String) {
                 if (sign !== undefined) {
-                    this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                    ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
                 }
                 return String(value);
             } else {
                 return undefined;
             }
         }
-        else if (defintion === DefinitionImpl.ENUMERATION_CONSNTANT) {
+        else if (definition === DefinitionImpl.ENUMERATION_CONSNTANT) {
             let value = id.getAttribute(SymTabKeyImpl.CONSTANT_VALUE);
             id.appendLineNumber(token.getLineNum());
 
             if (sign !== undefined) {
-                this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+                ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
             }
 
             return value;
         }
-        else if (defintion === undefined) {
-            this.errorHandler.flag(token, PascalErrorCode.NOT_CONSTANT_IDENTIFIER, this as unknown as PascalParserTD);
+        else if (definition === undefined) {
+            ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.NOT_CONSTANT_IDENTIFIER, this as unknown as PascalParserTD);
             return undefined;
         }
         else {
-            this.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
+            ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
             return undefined;
         }
     }
 
     /**
-     * Return the type of a constant given its value.
+     * Return the type of constant given its value.
      * @param value the constant value.
      * @return the type specification.
      * @private
      */
     public getConstantType(value: any): TypeSpec {
-
         // If value is an identifier
         if (value instanceof Token) {
             let name = value.getText().toLowerCase();
-            let id = this.symTabStack.lookup(name);
+            let id = ConstantDefinitionsParser.symTabStack.lookup(name);
 
             if (id === undefined) {
                 return undefined!;
@@ -1855,13 +1808,13 @@ export class ConstantDefinitionsParser extends DeclarationParser {
         // For any other constants.
         let constantType: TypeSpec = undefined!;
 
-        if (value instanceof Number) {
+        if (typeof value === "number") {
             if (Number.isInteger(value)) {
                 constantType = Predefined.integerType;
             } else {
                 constantType = Predefined.realType;
             }
-        } else if (value instanceof String) {
+        } else if (typeof value === "string") {
             if (value.length === 1) {
                 constantType = Predefined.charType;
             } else {
@@ -1877,10 +1830,11 @@ export class ConstantDefinitionsParser extends DeclarationParser {
  * <h1>TypeDefinitionsParser</h1>
  * <p>Parse Pascal type definitions.</p>
  */
-export class TypeDefinitionsParser extends DeclarationParser {
+export class TypeDefinitionsParser extends DeclarationsParser {
 
     // Synchronization set for a type identifier.
     public static readonly IDENTIFIER_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.VAR_START_SET
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
         PascalTokenType.FUNCTION,
@@ -1890,6 +1844,7 @@ export class TypeDefinitionsParser extends DeclarationParser {
 
     // Synchronization set for the = token
     public static readonly EQUALS_SET = new Set<PascalTokenType>([
+        // ConstantDefinitionParser.CONSTANT_START_SET
         PascalTokenType.IDENTIFIER,
         PascalTokenType.INTEGER,
         PascalTokenType.REAL,
@@ -1907,6 +1862,7 @@ export class TypeDefinitionsParser extends DeclarationParser {
 
     // Synchronization set for the start of the next definition of declaration.
     public static readonly NEXT_START_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.VAR_START_SET
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
         PascalTokenType.FUNCTION,
@@ -1921,10 +1877,6 @@ export class TypeDefinitionsParser extends DeclarationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -1939,15 +1891,15 @@ export class TypeDefinitionsParser extends DeclarationParser {
         // separated by semicolons.
         while (token.getType() === PascalTokenType.IDENTIFIER) {
             let name = token.getText().toLowerCase();
-            let typeId = this.symTabStack.lookupLocal(name);
+            let typeId = TypeDefinitionsParser.symTabStack.lookupLocal(name);
 
             // Enter the new identifier into the symbol table
             // but don't set how it's defined yet.
             if (typeId === undefined) {
-                typeId = this.symTabStack.enterLocal(name);
+                typeId = TypeDefinitionsParser.symTabStack.enterLocal(name);
                 typeId?.appendLineNumber(token.getLineNum());
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
+                TypeDefinitionsParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
                 typeId = undefined;
             }
 
@@ -1958,12 +1910,12 @@ export class TypeDefinitionsParser extends DeclarationParser {
             if (token.getType() === PascalTokenType.EQUALS) {
                 token = this.nextToken(); // consume the =
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
+                TypeDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
             }
 
             // Parse the type specification.
-            let typeSpecificatonParser = new TypeSpecificationParser(this as unknown as PascalParserTD);
-            let type = typeSpecificatonParser.parse(token);
+            let typeSpecificationParser = new TypeSpecificationParser(this as unknown as PascalParserTD);
+            let type = typeSpecificationParser.parse(token);
 
             // Set identifier to be a type and set its type specification.
             if (type !== undefined) {
@@ -1990,7 +1942,7 @@ export class TypeDefinitionsParser extends DeclarationParser {
                 }
             }
             else if (TypeDefinitionsParser.NEXT_START_SET.has(tokenType as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+                TypeDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
             }
 
             token = this.synchronize(TypeDefinitionsParser.IDENTIFIER_SET);
@@ -2002,12 +1954,13 @@ export class TypeDefinitionsParser extends DeclarationParser {
  * <h1>VariableDeclarationsParser</h1>
  * <p>Parse Pascal variable declaration</p>
  */
-export class VariableDeclarationsParser extends DeclarationParser {
+export class VariableDeclarationsParser extends DeclarationsParser {
 
     private definition: Definition = undefined!;
 
     // Synchronization set for a variable identifier.
     public static readonly IDENTIFIER_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.VAR_START_SET
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
         PascalTokenType.FUNCTION,
@@ -2017,8 +1970,9 @@ export class VariableDeclarationsParser extends DeclarationParser {
         PascalTokenType.SEMICOLON
     ]);
 
-    // Synchronization set for the start of the next defintion or declaration.
+    // Synchronization set for the start of the next definition or declaration.
     public static readonly NEXT_START_SET = new Set<PascalTokenType>([
+        // DeclarationsParser.ROUTINE_START_SET
         PascalTokenType.PROCEDURE,
         PascalTokenType.FUNCTION,
         PascalTokenType.BEGIN,
@@ -2032,10 +1986,6 @@ export class VariableDeclarationsParser extends DeclarationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -2055,7 +2005,7 @@ export class VariableDeclarationsParser extends DeclarationParser {
             token = this.currentToken();
             let tokenType = token.getType();
 
-            // Look for one or more semicolons after a defintion.
+            // Look for one or more semicolons after a definition.
             if (tokenType === PascalTokenType.SEMICOLON) {
                 while (token.getType() === PascalTokenType.SEMICOLON) {
                     token = this.nextToken(); // consume the ;
@@ -2063,11 +2013,10 @@ export class VariableDeclarationsParser extends DeclarationParser {
             }
 
             else if (VariableDeclarationsParser.NEXT_START_SET.has(tokenType as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
+                VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.MISSING_SEMICOLON, this as unknown as PascalParserTD);
             }
 
             token = this.synchronize(VariableDeclarationsParser.IDENTIFIER_SET);
-
         }
     }
 
@@ -2081,6 +2030,7 @@ export class VariableDeclarationsParser extends DeclarationParser {
     public static readonly IDENTIFIER_FOLLOW_SET = new Set<PascalTokenType>([
         PascalTokenType.COLON,
         PascalTokenType.SEMICOLON,
+        // DeclarationsParser.VAR_START_SET
         PascalTokenType.VAR,
         PascalTokenType.PROCEDURE,
         PascalTokenType.FUNCTION,
@@ -2119,12 +2069,12 @@ export class VariableDeclarationsParser extends DeclarationParser {
                 token = this.nextToken(); // consume the comma
 
                 if (VariableDeclarationsParser.IDENTIFIER_FOLLOW_SET.has(token.getType() as PascalTokenType)) {
-                    this.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
+                    VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
                 }
             }
 
             else if (VariableDeclarationsParser.IDENTIFIER_START_SET.has(tokenType as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
+                VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
             }
         } while (!VariableDeclarationsParser.IDENTIFIER_FOLLOW_SET.has(token.getType() as PascalTokenType));
 
@@ -2149,20 +2099,20 @@ export class VariableDeclarationsParser extends DeclarationParser {
 
             if (token.getType() === PascalTokenType.IDENTIFIER) {
                 let name = token.getText().toLowerCase();
-                id = this.symTabStack.lookupLocal(name)!;
+                id = VariableDeclarationsParser.symTabStack.lookupLocal(name)!;
 
                 // Enter a new identifier into the symbol table.
                 if (id === undefined) {
-                    id = this.symTabStack.enterLocal(name)!;
+                    id = VariableDeclarationsParser.symTabStack.enterLocal(name)!;
                     id.setDefinition(this.definition);
                     id.appendLineNumber(token.getLineNum());
                 } else {
-                    this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
+                    VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
                 }
 
                 token = this.nextToken(); // consume the identifier token.
             } else {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
+                VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
             }
 
             return id;
@@ -2186,7 +2136,7 @@ export class VariableDeclarationsParser extends DeclarationParser {
         if (token.getType() === PascalTokenType.COLON) {
             token = this.nextToken(); // consume the :
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_COLON, this as unknown as PascalParserTD);
+            VariableDeclarationsParser.errorHandler.flag(token, PascalErrorCode.MISSING_COLON, this as unknown as PascalParserTD);
         }
 
         // Parse the type specification.
@@ -2204,22 +2154,64 @@ export class VariableDeclarationsParser extends DeclarationParser {
         this.definition = definition;
     }
 }
+
+/**
+ * <h1>TypeSpecificationParser</h1>
+ * <p>Parse a Pascal type specification.<p>
+ */
 export class TypeSpecificationParser extends PascalParserTD {
+
+    // Synchronization set for starting a type specification.
+    public static readonly TYPE_START_SET = new Set<PascalTokenType>([
+        PascalTokenType.IDENTIFIER,
+        PascalTokenType.INTEGER,
+        PascalTokenType.REAL,
+        PascalTokenType.PLUS,
+        PascalTokenType.MINUS,
+        PascalTokenType.STRING,
+
+        PascalTokenType.LEFT_PAREN,
+        PascalTokenType.COMMA,
+
+        PascalTokenType.ARRAY,
+        PascalTokenType.RECORD,
+        PascalTokenType.SEMICOLON
+    ]);
     /**
      * @constructor
-     * @param parent
+     * @param parent the parent constructor.
      */
     constructor(parent: PascalParserTD) {
-        super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
+        super(parent.getScanner());
     }
 
+    /**
+     * Parse a Pascal type specification.
+     * @param token the current token.
+     * @return the type specification.
+     */
     // @ts-ignore
     public parse(token: Token): TypeSpec {
+        // Synchronize at the start of a type specification.
+        token = this.synchronize(TypeSpecificationParser.TYPE_START_SET);
 
+        switch (token.getType() as PascalTokenType) {
+
+            case PascalTokenType.ARRAY: {
+                let arrayTypeParser = new ArrayTypeParser(this as unknown as PascalParserTD);
+                return arrayTypeParser.parse(token);
+            }
+
+            case PascalTokenType.RECORD: {
+                let recordTypeParser = new RecordTypeParser(this as unknown as PascalParserTD);
+                return recordTypeParser.parse(token);
+            }
+
+            default: {
+                let simpleTypeParser = new SimpleTypeParser(this as unknown as PascalParserTD);
+                return simpleTypeParser.parse(token);
+            }
+        }
     }
 }
 
@@ -2248,10 +2240,6 @@ export class SimpleTypeParser extends TypeSpecificationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -2265,11 +2253,10 @@ export class SimpleTypeParser extends TypeSpecificationParser {
 
         switch (token.getType() as PascalTokenType) {
 
-
             case PascalTokenType.IDENTIFIER: {
 
                 let name = token.getText().toLowerCase();
-                let id = this.symTabStack.lookup(name);
+                let id = SimpleTypeParser.symTabStack.lookup(name);
 
                 if (id !== undefined) {
                     let definition = id.getDefinition();
@@ -2284,7 +2271,7 @@ export class SimpleTypeParser extends TypeSpecificationParser {
                         return id.getTypeSpec();
                     }
                     else if((definition !== DefinitionImpl.CONSTANT) && (definition !== DefinitionImpl.ENUMERATION_CONSNTANT)) {
-                        this.errorHandler.flag(token, PascalErrorCode.NOT_TYPE_IDENTIFIER, this as unknown as PascalParserTD);
+                        SimpleTypeParser.errorHandler.flag(token, PascalErrorCode.NOT_TYPE_IDENTIFIER, this as unknown as PascalParserTD);
                         token = this.nextToken(); // consume the identifier
                         return undefined!;
                     } else {
@@ -2292,7 +2279,7 @@ export class SimpleTypeParser extends TypeSpecificationParser {
                         return subrangeTypeParser.parse(token);
                     }
                 } else {
-                    this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+                    SimpleTypeParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
                     token = this.nextToken(); // consume the identifier.
                     return undefined!;
                 }
@@ -2305,7 +2292,7 @@ export class SimpleTypeParser extends TypeSpecificationParser {
 
             case PascalTokenType.COMMA:
             case PascalTokenType.SEMICOLON: {
-                this.errorHandler.flag(token, PascalErrorCode.INVALID_TYPE, this as unknown as PascalParserTD);
+                SimpleTypeParser.errorHandler.flag(token, PascalErrorCode.INVALID_TYPE, this as unknown as PascalParserTD);
                 return undefined!;
             }
 
@@ -2319,17 +2306,12 @@ export class SimpleTypeParser extends TypeSpecificationParser {
 
 export class SubrangeTypeParser extends TypeSpecificationParser {
 
-
     /**
      * @constructor
      * @param parent
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
     /**
@@ -2367,7 +2349,7 @@ export class SubrangeTypeParser extends TypeSpecificationParser {
         // At the start of the maximum constant?
         if (ConstantDefinitionsParser.CONSTANT_START_SET.has(tokenType as PascalTokenType)) {
             if (!sawDotDot) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_DOT_DOT, this as unknown as PascalParserTD);
+                SubrangeTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_DOT_DOT, this as unknown as PascalParserTD);
             }
 
             // Parse the maximum constant
@@ -2384,18 +2366,18 @@ export class SubrangeTypeParser extends TypeSpecificationParser {
 
             // Are the max and min value types valid?
             if ((minType === undefined) || (maxType === undefined)) {
-                this.errorHandler.flag(constantToken, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                SubrangeTypeParser.errorHandler.flag(constantToken, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
             }
 
             else if (minType !== maxType) {
-                this.errorHandler.flag(constantToken, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
+                SubrangeTypeParser.errorHandler.flag(constantToken, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
             }
             // Are the min and max values types the same?
             else if((minValue !== undefined) && (maxValue !== undefined) && (minValue >= maxValue)) {
-                this.errorHandler.flag(constantToken, PascalErrorCode.MIN_GT_MAX, this as unknown as PascalParserTD);
+                SubrangeTypeParser.errorHandler.flag(constantToken, PascalErrorCode.MIN_GT_MAX, this as unknown as PascalParserTD);
             }
         } else {
-            this.errorHandler.flag(constantToken, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
+            SubrangeTypeParser.errorHandler.flag(constantToken, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
         }
 
         subrangeType.setAttribute(TypeKeyImpl.SUBRANGE_BASE_TYPE, minType);
@@ -2425,7 +2407,7 @@ export class SubrangeTypeParser extends TypeSpecificationParser {
         } else if (type.getForm() === TypeFormImpl.ENUMERATION) {
             return value;
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
+            SubrangeTypeParser.errorHandler.flag(token, PascalErrorCode.INVALID_SUBRANGE, this as unknown as PascalParserTD);
             return value;
         }
     }
@@ -2456,12 +2438,7 @@ export class EnumerationTypeParser extends TypeSpecificationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
-
 
     /**
      * Parse a Pascal enumeration type specification.
@@ -2487,11 +2464,11 @@ export class EnumerationTypeParser extends TypeSpecificationParser {
                 token = this.nextToken(); // consume the comma
 
                 if (EnumerationTypeParser.ENUM_DEFINITION_FOLLOW_SET.has(token.getType() as PascalTokenType)) {
-                    this.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
+                    EnumerationTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
                 }
             }
             else if (EnumerationTypeParser.ENUM_CONSTANT_START_SET.has(tokenType as PascalTokenType)) {
-                this.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
+                EnumerationTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
             }
         } while (!EnumerationTypeParser.ENUM_DEFINITION_FOLLOW_SET.has(token.getType() as PascalTokenType));
 
@@ -2499,7 +2476,7 @@ export class EnumerationTypeParser extends TypeSpecificationParser {
         if (token.getType() === PascalTokenType.RIGHT_PAREN) {
             token = this.nextToken(); // consume theh )
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_PAREN, this as unknown as PascalParserTD);
+            EnumerationTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_PAREN, this as unknown as PascalParserTD);
         }
 
         enumerationType.setAttribute(TypeKeyImpl.ENUMERATION_CONSTANTS, constants);
@@ -2518,12 +2495,12 @@ export class EnumerationTypeParser extends TypeSpecificationParser {
 
         if (tokenType === PascalTokenType.IDENTIFIER) {
             let name = token.getText().toLowerCase();
-            let constantId = this.symTabStack.lookupLocal(name);
+            let constantId = EnumerationTypeParser.symTabStack.lookupLocal(name);
 
             if (constantId !== undefined) {
-                this.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
+                EnumerationTypeParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_REDIFINED, this as unknown as PascalParserTD);
             } else {
-                constantId = this.symTabStack.enterLocal(name);
+                constantId = EnumerationTypeParser.symTabStack.enterLocal(name);
                 constantId?.setDefinition(DefinitionImpl.ENUMERATION_CONSNTANT);
                 constantId?.setTypeSpec(enumerationType);
                 constantId?.setAttribute(SymTabKeyImpl.CONSTANT_VALUE, value);
@@ -2533,7 +2510,7 @@ export class EnumerationTypeParser extends TypeSpecificationParser {
 
             token = this.nextToken(); // consume the identifier.
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
+            EnumerationTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_IDENTIFIER, this as unknown as PascalParserTD);
         }
     }
 }
@@ -2583,10 +2560,6 @@ export class ArrayTypeParser extends TypeSpecificationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -2602,7 +2575,7 @@ export class ArrayTypeParser extends TypeSpecificationParser {
         // Synchronize at the [ token
         token = this.synchronize(ArrayTypeParser.LEFT_BRACKET_SET);
         if (token.getType() !== PascalTokenType.LEFT_BRACKET) {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_LEFT_BRACKET, this as unknown as PascalParserTD);
+            ArrayTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_LEFT_BRACKET, this as unknown as PascalParserTD);
         }
 
         // Parse the list of index type
@@ -2613,7 +2586,7 @@ export class ArrayTypeParser extends TypeSpecificationParser {
         if (token.getType() === PascalTokenType.RIGHT_BRACKET) {
             token = this.nextToken(); // consume [
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_BRACKET, this as unknown as PascalParserTD);
+            ArrayTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_BRACKET, this as unknown as PascalParserTD);
         }
 
         // Synchronize at OF
@@ -2621,7 +2594,7 @@ export class ArrayTypeParser extends TypeSpecificationParser {
         if (token.getType() === PascalTokenType.OF) {
             token = this.nextToken(); // consume the OF
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_OF, this as unknown as PascalParserTD);
+            ArrayTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_OF, this as unknown as PascalParserTD);
         }
 
         // Parse the element type
@@ -2690,7 +2663,7 @@ export class ArrayTypeParser extends TypeSpecificationParser {
             let tokenType = token.getType();
             if ((tokenType !== PascalTokenType.COMMA) && (tokenType !== PascalTokenType.RIGHT_BRACKET)) {
                 if (ArrayTypeParser.INDEX_START_SET.has(tokenType as PascalTokenType)) {
-                    this.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
+                    ArrayTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_COMMA, this as unknown as PascalParserTD);
                     anotherIndex = true;
                 }
             }
@@ -2740,7 +2713,7 @@ export class ArrayTypeParser extends TypeSpecificationParser {
             let constants = indexType.getAttribute(TypeKeyImpl.ENUMERATION_CONSTANTS) as SymTabEntry[];
             count = constants.length;
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.INVALID_INDEX_TYPE, this as unknown as PascalParserTD);
+            ArrayTypeParser.errorHandler.flag(token, PascalErrorCode.INVALID_INDEX_TYPE, this as unknown as PascalParserTD);
         }
 
         arrayType.setAttribute(TypeKeyImpl.ARRAY_ELEMENT_COUNT, count);
@@ -2779,10 +2752,6 @@ export class RecordTypeParser extends TypeSpecificationParser {
      */
     constructor(parent: PascalParserTD) {
         super(parent);
-        this.messageHandler = parent.getMessageHandler();
-        this.errorHandler = parent.getErrorHandler();
-        this.symTabStack = parent.getSymTabStack();
-        this.iCode = parent.getICode();
     }
 
 
@@ -2796,7 +2765,7 @@ export class RecordTypeParser extends TypeSpecificationParser {
         token = this.nextToken(); // consume RECORD
 
         // Push a symbol table for the RECORD type specification.
-        recordType.setAttribute(TypeKeyImpl.RECORD_SYMTAB, this.symTabStack.push());
+        recordType.setAttribute(TypeKeyImpl.RECORD_SYMTAB, RecordTypeParser.symTabStack.push());
 
         // Parse the field declarations.
         let variableDeclarationsParser = new VariableDeclarationsParser(this as unknown as PascalParserTD);
@@ -2804,7 +2773,7 @@ export class RecordTypeParser extends TypeSpecificationParser {
         variableDeclarationsParser.parse(token);
 
         // Pop off the record's symbol table.
-        this.symTabStack.pop();
+        RecordTypeParser.symTabStack.pop();
 
         // Synchronize at the END
         token = this.synchronize(RecordTypeParser.END_SET);
@@ -2813,7 +2782,7 @@ export class RecordTypeParser extends TypeSpecificationParser {
         if (token.getType() === PascalTokenType.END) {
             token = this.nextToken(); // consume the END
         } else {
-            this.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
+            RecordTypeParser.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
         }
 
         return recordType;

@@ -18,7 +18,7 @@ export class FrontendFactory {
     public static createParser(language: string, type: string, source:Source): Parser {
         if (language.toLowerCase() === "pascal" && type.toLowerCase() === "top-down") {
             let scanner: Scanner = new PascalScanner(source);
-            return new PascalParserTD(scanner as PascalScanner);
+            return new PascalParserTD(scanner);
         }
         else if (language.toLowerCase() !== "pascal") {
             throw new Error(`Parser factory: Invalid language '${language}'.`);

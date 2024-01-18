@@ -7,7 +7,6 @@ import {SymTabStack} from "../SymTabStack.ts";
 interface ArrayList<T> {
     add(symTab: T): void;
     get(n: number): T;
-    remove(): void;
 }
 
 /**
@@ -49,20 +48,19 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
     /**
      * Push a symbol table onto the symbol table stack.
      * @param symTab the symbol table to push.
-     * @return the pushed symbol toble.
+     * @return the pushed symbol table.
      */
     push(symTab?: SymTab | undefined): SymTab {
-        if (symTab !== undefined) {
+        if (symTab === undefined) {
             let symTab = SymTabFactory.createSymTab(++this.currentNestingLevel);
             this.add(symTab);
 
             return symTab;
-        } else {
-            ++this.currentNestingLevel;
-            this.add(symTab!);
-
-            return symTab!;
         }
+        ++this.currentNestingLevel;
+        this.add(symTab!);
+
+        return symTab!;
     }
 
     /**
@@ -71,7 +69,7 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
      */
     pop(): SymTab {
         let symTab = this.get(this.currentNestingLevel);
-        this.remove();
+        this._symTabs.splice(this.currentNestingLevel--, 1);
 
         return symTab;
     }
@@ -117,7 +115,7 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
         let foundEntry: SymTabEntry = undefined!;
 
         // Search the current and enclosing scopes.
-        for (let i = this.currentNestingLevel; (i >= 0) && (foundEntry !== undefined); --i) {
+        for (let i = this.currentNestingLevel; (i >= 0) && (foundEntry === undefined); --i) {
             foundEntry = this.get(i).lookup(name)!;
         }
 
@@ -130,9 +128,5 @@ export class SymTabStackImpl implements ArrayList<SymTab>, SymTabStack {
 
     get(n: number): SymTab {
         return this._symTabs[n];
-    }
-
-    remove(): void {
-        delete this._symTabs[this.currentNestingLevel--];
     }
 }

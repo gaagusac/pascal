@@ -61,6 +61,4 @@ export interface SymTabStack {
      * @param name
      */
     lookup(name: string): SymTabEntry | undefined;
-
-
 }

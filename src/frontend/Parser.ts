@@ -1,6 +1,5 @@
 import {Scanner} from "./Scanner.ts";
 import {Token} from "./Token.ts";
-import {ICode} from "../intermediate/ICode.ts";
 import {MessageProducer} from "../message/MessageProducer.ts";
 import { Message } from "../message/Message.ts";
 import { MessageListener } from "../message/MessageListener.ts";
@@ -20,22 +19,21 @@ import {SymTabFactory} from "../intermediate/SymTabFactory.ts";
  */
 export abstract class Parser implements MessageProducer {
 
-    protected symTabStack: SymTabStack;
-    protected messageHandler: MessageHandler;
-    protected scanner: Scanner;
-    protected iCode: ICode | undefined;
+    protected static symTabStack: SymTabStack;          // Symbol table stack.
+    protected static messageHandler: MessageHandler;    // message handler delegate.
 
+    static {
+        Parser.symTabStack = SymTabFactory.createSymTabStack();
+        Parser.messageHandler = new MessageHandler();
+    }
     /**
      * Constructor
      * @param scanner - the scanner to be used with this parser.
      * @protected
      */
-    protected constructor(scanner: Scanner) {
-        this.symTabStack = SymTabFactory.createSymTabStack();
-        this.messageHandler = new MessageHandler();
+    protected constructor(protected scanner: Scanner) {
         this.scanner = scanner;
-        this.iCode = undefined;
-    }
+   }
 
     /**
      * @getter
@@ -47,22 +45,14 @@ export abstract class Parser implements MessageProducer {
 
     /**
      * @getter
-     * @return the intermediate code generated for this parser.
-     */
-    public getICode(): ICode | undefined {
-        return this.iCode;
-    }
-
-    /**
-     * @getter
      * @return the symbol table for this parser.
      */
     public getSymTabStack(): SymTabStack {
-        return this.symTabStack;
+        return Parser.symTabStack;
     }
 
     public getMessageHandler(): MessageHandler {
-        return this.messageHandler;
+        return Parser.messageHandler;
     }
 
     /**
@@ -70,7 +60,7 @@ export abstract class Parser implements MessageProducer {
      * @param listener the listener to add.
      */
     addMessageListener(listener: MessageListener): void {
-        this.messageHandler.addListener(listener);
+        Parser.messageHandler.addListener(listener);
     }
 
     /**
@@ -78,7 +68,7 @@ export abstract class Parser implements MessageProducer {
      * @param listener the message listener to remove.
      */
     removeMessageListener(listener: MessageListener): void {
-        this.messageHandler.removeListener(listener);
+        Parser.messageHandler.removeListener(listener);
     }
 
     /**
@@ -86,7 +76,7 @@ export abstract class Parser implements MessageProducer {
      * @param message the message to set.
      */
     sendMessage(message: Message): void {
-        this.messageHandler.sendMessage(message);
+        Parser.messageHandler.sendMessage(message);
     }
 
     /**
