@@ -1701,7 +1701,10 @@ export class ConstantDefinitionsParser extends DeclarationsParser {
             }
 
             case PascalTokenType.REAL: {
-                let value = Number(token.getValue());
+                // Js only has Number types: so 20.0 is an integer in the eyes of js
+                // we fix this by adding a very small value "0.0000000001" to the value
+                // of the token to "coarse" it to a float representation.
+                let value = Number(token.getValue()) + (/.\.0+$/.test(token.getText()) ? 1e-9 : 0.0);
                 this.nextToken(); // consume the number.
                 return sign === PascalTokenType.MINUS ? -value : value;
             }
@@ -1733,7 +1736,6 @@ export class ConstantDefinitionsParser extends DeclarationsParser {
     public parseIdentifierConstant(token: Token, sign: TokenType): any {
         let name = token.getText().toLowerCase();
         let id = ConstantDefinitionsParser.symTabStack.lookup(name);
-
         this.nextToken(); // consume the identifier.
 
         // The identifier must have already been defined.
@@ -1749,9 +1751,9 @@ export class ConstantDefinitionsParser extends DeclarationsParser {
             let value = id.getAttribute(SymTabKeyImpl.CONSTANT_VALUE);
             id.appendLineNumber(token.getLineNum());
 
-            if (value instanceof Number) {
+            if (typeof value === "number") {
                 return sign === PascalTokenType.MINUS ? Number(-value) : Number(value);
-            } else if (value instanceof String) {
+            } else if (typeof value === "string") {
                 if (sign !== undefined) {
                     ConstantDefinitionsParser.errorHandler.flag(token, PascalErrorCode.INVALID_CONSTANT, this as unknown as PascalParserTD);
                 }
@@ -1783,6 +1785,7 @@ export class ConstantDefinitionsParser extends DeclarationsParser {
     /**
      * Return the type of constant given its value.
      * @param value the constant value.
+     * @pram tok the token.
      * @return the type specification.
      * @private
      */
@@ -2548,9 +2551,11 @@ export class ArrayTypeParser extends TypeSpecificationParser {
         PascalTokenType.MINUS,
         PascalTokenType.STRING,
         PascalTokenType.LEFT_PAREN,
+        PascalTokenType.ARRAY,
+        PascalTokenType.RECORD,
         PascalTokenType.COMMA,
-        PascalTokenType.SEMICOLON,
-        PascalTokenType.OF
+        PascalTokenType.OF,
+        PascalTokenType.SEMICOLON
     ]);
 
 

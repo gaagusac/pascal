@@ -12,7 +12,7 @@ import {TokenType} from "./frontend/Token.ts";
 import {PascalTokenType} from "./frontend/pascal/PascalTokenType.ts";
 import {SymTabStack} from "./intermediate/SymTabStack.ts";
 import {SymTabKeyImpl} from "./intermediate/symtabimpl/SymTabKeyImpl.ts";
-import {ParseTreePrinter} from "./util/ParseTreePrinter.ts";
+import {CrossReferencer} from "./util/CrossReferencer.ts";
 
 
 // DOM elements
@@ -67,6 +67,8 @@ class Pascal {
 
             const xref = document.querySelector("#crossreference__cbox") as HTMLInputElement;
             if (xref.checked) {
+                let crossReferencer = new CrossReferencer();
+                crossReferencer.print(this.parser.getSymTabStack());
                 // printSymbolTable(this.symTabStack);
             }
 
