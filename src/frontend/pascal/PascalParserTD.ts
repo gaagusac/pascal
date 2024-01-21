@@ -1913,7 +1913,7 @@ export class TypeDefinitionsParser extends DeclarationsParser {
             if (token.getType() === PascalTokenType.EQUALS) {
                 token = this.nextToken(); // consume the =
             } else {
-                TypeDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_END, this as unknown as PascalParserTD);
+                TypeDefinitionsParser.errorHandler.flag(token, PascalErrorCode.MISSING_EQUALS, this as unknown as PascalParserTD);
             }
 
             // Parse the type specification.
@@ -1927,7 +1927,7 @@ export class TypeDefinitionsParser extends DeclarationsParser {
 
             // Cross-link the type identifier and the type specification.
             if ((type !== undefined) && (typeId !== undefined)) {
-                if (type.getIdentifier() !== undefined) {
+                if (type.getIdentifier() === undefined) {
                     type.setIdentifier(typeId);
                 }
                 typeId.setTypeSpec(type);

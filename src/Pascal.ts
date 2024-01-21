@@ -13,6 +13,7 @@ import {PascalTokenType} from "./frontend/pascal/PascalTokenType.ts";
 import {SymTabStack} from "./intermediate/SymTabStack.ts";
 import {SymTabKeyImpl} from "./intermediate/symtabimpl/SymTabKeyImpl.ts";
 import {CrossReferencer} from "./util/CrossReferencer.ts";
+import {ParseTreePrinter} from "./util/ParseTreePrinter.ts";
 
 
 // DOM elements
@@ -74,10 +75,8 @@ class Pascal {
 
             const interForm = document.querySelector("#intermediate__cbox") as HTMLInputElement;
             if (interForm.checked) {
-                // let treePrinter = new ParseTreePrinter();
-                // treePrinter.print(programId.getAttribute(SymTabKeyImpl.ROUTINE_SYMTAB));
-                // let treePrinter = new ParseTreePrinter();
-                // treePrinter.print(this.iCode);
+                let treePrinter = new ParseTreePrinter();
+                treePrinter.print(this.parser.getSymTabStack());
             }
             this.backEnd.process(this.iCode, this.symTabStack);
         }

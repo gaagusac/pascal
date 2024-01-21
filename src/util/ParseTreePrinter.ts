@@ -59,7 +59,7 @@ export class ParseTreePrinter {
 
         // Print any procedures and functions defined in this routine.
         let routineIds = routineId.getAttribute(SymTabKeyImpl.ROUTINE_ROUTINES) as SymTabEntry[];
-        if (routineIds.length !== 0) {
+        if (routineIds) {
             for (let rtnId of routineIds) {
                 this.printRoutine(rtnId);
             }

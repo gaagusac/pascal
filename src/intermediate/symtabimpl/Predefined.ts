@@ -68,7 +68,7 @@ export class Predefined {
         // Type char
         Predefined.charId = symTabStack.enterLocal("char")!;
         Predefined.charType = TypeFactory.createType(TypeFormImpl.SCALAR);
-        Predefined.charType.setIdentifier(Predefined.booleanId);
+        Predefined.charType.setIdentifier(Predefined.charId);
         Predefined.charId.setDefinition(DefinitionImpl.TYPE);
         Predefined.charId.setTypeSpec(Predefined.charType);
 
