@@ -3,6 +3,7 @@ import {ICodeKey} from "../ICodeKey.ts";
 import { ICodeNodeType } from "../ICodeNodeType.ts";
 import {ICodeFactory} from "../ICodeFactory.ts";
 import {ICodeNodeTypeImpl} from "./ICodeNodeTypeImpl.ts";
+import {TypeSpec} from "../TypeSpec.ts";
 
 interface ICodeNodeImplArrayList<K, T> {
     put(key: K, value: T): void;
@@ -17,7 +18,7 @@ export class ICodeNodeImpl implements ICodeNode, ICodeNodeImplArrayList<ICodeKey
     private parent: ICodeNode | undefined;                  // parent node.
     private children: ICodeNode[];
     private attributes: Map<ICodeKey, any>;
-
+    private typeSpec: TypeSpec;
 
     /**
      * @constructor
@@ -28,6 +29,23 @@ export class ICodeNodeImpl implements ICodeNode, ICodeNodeImplArrayList<ICodeKey
         this.children = [];
         this.parent = undefined;
         this.attributes = new Map<ICodeKey, any>();
+        this.typeSpec = undefined!;
+    }
+
+    /**
+     * Set the type specification of this node.
+     * @param typeSpec the type specification to set.
+     */
+    setTypeSpec(typeSpec: TypeSpec): void {
+        this.typeSpec = typeSpec;
+    }
+
+    /**
+     * Return the type specification of this node.
+     * @return the type specification.
+     */
+    getTypeSpec(): TypeSpec {
+        return this.typeSpec;
     }
 
     put(key: ICodeKey, value: any): void {
@@ -114,5 +132,6 @@ export class ICodeNodeImpl implements ICodeNode, ICodeNodeImplArrayList<ICodeKey
     public entrySet(): Map<ICodeKey, any> {
         return this.attributes;
     }
+
 
 }

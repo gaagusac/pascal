@@ -21,6 +21,8 @@ import {TypeFactory} from "../../intermediate/TypeFactory.ts";
 import {TypeFormImpl} from "../../intermediate/typeimpl/TypeFormImpl.ts";
 import {TypeKeyImpl} from "../../intermediate/typeimpl/TypeKeyImpl.ts";
 import {Scanner} from "../Scanner.ts";
+import {TypeChecker} from "../../intermediate/typeimpl/TypeChecker.ts";
+import {SymTab} from "../../intermediate/SymTab.ts";
 
 export class PascalParserTD extends Parser {
 
@@ -477,6 +479,7 @@ export class ExpressionParser extends StatementParser {
         // Parse a simple expression and make the root of its tree
         // the root node.
         let rootNode = this.parseSimpleExpression(token);
+        let resultType = rootNode !== undefined ? rootNode.getTypeSpec() : Predefined.undefinedType;
 
         token = this.currentToken();
         let tokenType = token.getType();
@@ -494,10 +497,24 @@ export class ExpressionParser extends StatementParser {
 
             // Parse the second simple expression. The operator node adopts
             // the simple expression's tree as its second child.
-            opNode.addChild(this.parseSimpleExpression(token));
+            let simExprNode = this.parseSimpleExpression(token);
+            opNode.addChild(simExprNode);
 
             // The operator node become the new root node.
             rootNode = opNode;
+
+            // Type check: The operands must be comparison compatible.
+            let simExprType = simExprNode !== undefined ? simExprNode.getTypeSpec() : Predefined.undefinedType;
+            if (TypeChecker.areComparisonCompatible(resultType, simExprType)) {
+                resultType = Predefined.booleanType;
+            } else {
+                this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                resultType = Predefined.undefinedType;
+            }
+        }
+
+        if (rootNode !== undefined) {
+            rootNode.setTypeSpec(resultType);
         }
 
         return rootNode;
@@ -526,17 +543,25 @@ export class ExpressionParser extends StatementParser {
      */
     private parseSimpleExpression(token: Token): ICodeNode {
 
+        let signToken: Token = undefined!;
         let signType: TokenType = undefined!; // type of leading sign (if any).
 
         // Look for a leading + or - sign
         let tokenType = token.getType();
         if ((tokenType === PascalTokenType.PLUS) || (tokenType === PascalTokenType.MINUS)) {
             signType = tokenType;
+            signToken = token;
             token = this.nextToken();   // consume the + or -
         }
 
         // Parse a term and make the root of its tree the root node.
         let rootNode = this.parseTerm(token);
+        let resultType = rootNode !== undefined ? rootNode.getTypeSpec() : Predefined.undefinedType;
+
+        // Type check: leading sign.
+        if ((signType !== undefined) && (!TypeChecker.isIntegerOrReal(resultType))) {
+            this.getErrorHandler().flag(signToken, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+        }
 
         // Was there a leading - sign?
         if (signType === PascalTokenType.MINUS) {
@@ -545,6 +570,7 @@ export class ExpressionParser extends StatementParser {
             // as its child. The NEGATE node becomes the new root node.
             let negateNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.NEGATE);
             negateNode.addChild(rootNode);
+            negateNode.setTypeSpec(rootNode.getTypeSpec());
             rootNode = negateNode;
         }
 
@@ -553,6 +579,7 @@ export class ExpressionParser extends StatementParser {
 
         // Loop over the additive operators
         while (ExpressionParser.ADD_OPS.has(tokenType as PascalTokenType)) {
+            let operator = tokenType;
 
             // Create a new operator node and adopt the current tree
             // as its first child.
@@ -564,10 +591,48 @@ export class ExpressionParser extends StatementParser {
 
             // Parse another term. The operator node adopts
             // the term's tree as itf second child.
-            opNode.addChild(this.parseTerm(token));
+            let termNode = this.parseTerm(token);
+            opNode.addChild(termNode);
+            let termType = termNode !== undefined ? termNode.getTypeSpec() : Predefined.undefinedType;
 
             // The operator node becomes the new root node.
             rootNode = opNode;
+
+            // Determine the result type.
+            switch (operator as PascalTokenType) {
+                case PascalTokenType.PLUS:
+                case PascalTokenType.MINUS: {
+                    // Both operands integer ==> integer result.
+                    if (TypeChecker.areBothInteger(resultType, termType)) {
+                        resultType = Predefined.integerType;
+                    }
+
+                    // Both real operands or one real and one integer operand
+                    // ==> real result.
+                    else if (TypeChecker.isAtLeastOneReal(resultType, termType)) {
+                        resultType = Predefined.realType;
+                    }
+
+                    else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+
+                case PascalTokenType.OR: {
+                    // Both operands boolean ==> boolean result.
+                    if (TypeChecker.areBothBoolean(resultType, termType)) {
+                        resultType = Predefined.booleanType;
+                    } else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+            }
+
+            rootNode.setTypeSpec(resultType);
 
             token = this.currentToken();
             tokenType = token.getType();
@@ -604,12 +669,14 @@ export class ExpressionParser extends StatementParser {
     private parseTerm(token: Token): ICodeNode {
         // Parse a factor and make its node the root node.
         let rootNode = this.parseFactor(token);
+        let resultType = rootNode !== undefined ? rootNode.getTypeSpec() : Predefined.undefinedType;
 
         token = this.currentToken();
         let tokenType = token.getType();
 
         // Loop over multiplicative operators..
         while (ExpressionParser.MULT_OPS.has(tokenType as PascalTokenType)) {
+            let operator = tokenType;
 
             // Create a new operator node and adopt the current tree
             // as its first child.
@@ -621,10 +688,72 @@ export class ExpressionParser extends StatementParser {
 
             // Parse another factor. The operator node adopts
             // the term's tree as its second child.
-            opNode.addChild(this.parseFactor(token));
+            let factorNode = this.parseFactor(token);
+            opNode.addChild(factorNode);
+            let factorType = factorNode !== undefined ? factorNode.getTypeSpec() : Predefined.undefinedType;
 
             // The operator node becomes the new root node.
             rootNode = opNode;
+
+            // Determine the result type
+            switch (operator as PascalTokenType) {
+
+                case PascalTokenType.START: {
+                    // Both operands integer ==> integer result.
+                    if (TypeChecker.areBothInteger(resultType, factorType)) {
+                        resultType = Predefined.integerType;
+                    }
+
+                    // Both real operands or one real and one integer operand
+                    // ==> real result.
+                    else if (TypeChecker.isAtLeastOneReal(resultType, factorType)) {
+                        resultType = Predefined.realType;
+                    }
+
+                    else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+
+                case PascalTokenType.SLASH: {
+                    // All integer and real operand combinations
+                    // ==> real result.
+                    if (TypeChecker.areBothInteger(resultType, factorType) || TypeChecker.isAtLeastOneReal(resultType, factorType)) {
+                        resultType = Predefined.realType;
+                    } else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+
+                case PascalTokenType.DIV:
+                case PascalTokenType.MOD: {
+                    // Both operands integer ==> integer result.
+                    if (TypeChecker.areBothInteger(resultType, factorType)) {
+                        resultType = Predefined.integerType;
+                    } else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+
+                case PascalTokenType.AND: {
+                    // Both operands boolean ==> boolean result.
+                    if (TypeChecker.areBothBoolean(resultType, factorType)) {
+                        resultType = Predefined.booleanType;
+                    } else {
+                        this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                    }
+
+                    break;
+                }
+            }
+
+            rootNode.setTypeSpec(resultType);
 
             token = this.currentToken();
             tokenType = token.getType();
@@ -645,21 +774,22 @@ export class ExpressionParser extends StatementParser {
 
         switch (tokenType as PascalTokenType) {
             case PascalTokenType.IDENTIFIER: {
-                // Look up the identifier in the symbol table stack.
-                // Flag the identifier as undefined if it's not found.
-                let name = token.getText().toLowerCase();
-                let id = ExpressionParser.symTabStack.lookup(name);
-                if (id === undefined) {
-                    ExpressionParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
-                    id = ExpressionParser.symTabStack.enterLocal(name);
-                }
-
-                rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.VARIABLE);
-                rootNode.setAttribute(ICodeKeyImpl.ID, id);
-                id?.appendLineNumber(token.getLineNum());
-
-                token = this.nextToken(); // consume the identifier.
-                break;
+                // // Look up the identifier in the symbol table stack.
+                // // Flag the identifier as undefined if it's not found.
+                // let name = token.getText().toLowerCase();
+                // let id = ExpressionParser.symTabStack.lookup(name);
+                // if (id === undefined) {
+                //     ExpressionParser.errorHandler.flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+                //     id = ExpressionParser.symTabStack.enterLocal(name);
+                // }
+                //
+                // rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.VARIABLE);
+                // rootNode.setAttribute(ICodeKeyImpl.ID, id);
+                // id?.appendLineNumber(token.getLineNum());
+                //
+                // token = this.nextToken(); // consume the identifier.
+                // break;
+                return this.parseIdentifier(token);
             }
 
             case PascalTokenType.INTEGER: {
@@ -668,6 +798,8 @@ export class ExpressionParser extends StatementParser {
                 rootNode.setAttribute(ICodeKeyImpl.VALUE, token.getValue());
 
                 token = this.nextToken(); // consume the number.
+
+                rootNode.setTypeSpec(Predefined.integerType);
                 break;
             }
 
@@ -677,6 +809,8 @@ export class ExpressionParser extends StatementParser {
                 rootNode.setAttribute(ICodeKeyImpl.VALUE, token.getValue());
 
                 token = this.nextToken(); // consume the number
+
+                rootNode.setTypeSpec(Predefined.realType);
                 break;
             }
 
@@ -687,7 +821,11 @@ export class ExpressionParser extends StatementParser {
                 rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.STRING_CONSTANT);
                 rootNode.setAttribute(ICodeKeyImpl.VALUE, value);
 
+                let resultType = value.length === 1 ? Predefined.charType : TypeFactory.createStringType(value);
+
                 token = this.nextToken(); // consume the string
+
+                rootNode.setTypeSpec(resultType);
                 break;
             }
 
@@ -699,8 +837,16 @@ export class ExpressionParser extends StatementParser {
 
                 // Parse the factor. The NOT node adopts the
                 // factor node as its child.
-                rootNode.addChild(this.parseFactor(token));
+                let factorNode = this.parseFactor(token);
+                rootNode.addChild(factorNode);
 
+                // Type check: the factor must be boolean.
+                let factorType = factorNode !== undefined ? factorNode.getTypeSpec() : Predefined.undefinedType;
+                if (!TypeChecker.isBoolean(factorType)) {
+                    this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                }
+
+                rootNode.setTypeSpec(Predefined.booleanType);
                 break;
             }
 
@@ -709,6 +855,7 @@ export class ExpressionParser extends StatementParser {
 
                 // Parse an expression and make its node the root node.
                 rootNode = this.parseExpression(token);
+                let resultType = rootNode !== undefined ? rootNode.getTypeSpec() : Predefined.undefinedType;
 
                 // Look for the matching ) token.
                 token = this.currentToken();
@@ -718,11 +865,88 @@ export class ExpressionParser extends StatementParser {
                     ExpressionParser.errorHandler.flag(token, PascalErrorCode.MISSING_RIGHT_PAREN, this as unknown as PascalParserTD);
                 }
 
+                rootNode.setTypeSpec(resultType);
                 break;
             }
 
             default: {
                 ExpressionParser.errorHandler.flag(token, PascalErrorCode.UNEXPECTED_TOKEN, this as unknown as PascalParserTD);
+                break;
+            }
+        }
+
+        return rootNode;
+    }
+
+    /**
+     * Parse an identifier.
+     * @param token the current token.
+     * @return the root node of the generated parse tree.
+     * @private
+     */
+    private parseIdentifier(token: Token): ICodeNode {
+        let rootNode: ICodeNode = undefined!
+
+        // Look up the identifier in the symbol table stack.
+        let name = token.getText().toLowerCase();
+        let id = this.getSymTabStack().lookup(name);
+
+        // Undefined.
+        if (id === undefined) {
+            this.getErrorHandler().flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+            id = this.getSymTabStack().enterLocal(name);
+            id?.setDefinition(DefinitionImpl.UNDEFINED);
+            id?.setTypeSpec(Predefined.undefinedType);
+        }
+
+        let defnCode = id?.getDefinition();
+
+        switch (defnCode as DefinitionImpl) {
+            case DefinitionImpl.CONSTANT: {
+                let value = id?.getAttribute(SymTabKeyImpl.CONSTANT_VALUE);
+                let type = id?.getTypeSpec();
+
+                if (typeof value === "number") {
+                    if (Number.isInteger(value)) {
+                        rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.INTEGER_CONSTANT)!;
+                        rootNode.setAttribute(ICodeKeyImpl.VALUE, value);
+                    } else {
+                        rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.REAL_CONSTANT);
+                        rootNode.setAttribute(ICodeKeyImpl.VALUE, value);
+                    }
+                } else if (typeof value === "string") {
+                    rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.STRING_CONSTANT);
+                    rootNode.setAttribute(ICodeKeyImpl.VALUE, value);
+                }
+
+                id?.appendLineNumber(token.getLineNum());
+                token = this.nextToken(); // consume the constant identifier.
+
+                if (rootNode !== undefined) {
+                    rootNode.setTypeSpec(type!);
+                }
+
+                break;
+            }
+
+            case DefinitionImpl.ENUMERATION_CONSNTANT: {
+                let value = id?.getAttribute(SymTabKeyImpl.CONSTANT_VALUE);
+                let type = id?.getTypeSpec();
+
+                rootNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.INTEGER_CONSTANT);
+                rootNode.setAttribute(ICodeKeyImpl.VALUE, value);
+
+                id?.appendLineNumber(token.getLineNum());
+                token = this.nextToken(); // consume the enum constant identifier.
+
+                rootNode.setTypeSpec(type!);
+                break;
+            }
+
+            default: {
+                // TODO
+                let variableParser = new VariableParser(this as unknown as PascalParserTD);
+                rootNode = variableParser.parse(token, id);
                 break;
             }
         }
@@ -2792,4 +3016,184 @@ export class RecordTypeParser extends TypeSpecificationParser {
 
         return recordType;
     }
+}
+
+/**
+ * </h1>VariableParser</h1>
+ * <p>Parse a Pascal variable.</p>
+ */
+export class VariableParser extends StatementParser {
+
+
+    public static readonly SUBSCRIPT_FIELD_START_SET = new Set<PascalTokenType>([
+        PascalTokenType.LEFT_BRACKET,
+        PascalTokenType.DOT
+    ]);
+
+    /**
+     * @constructor
+     * @param parent the parent parser.
+     */
+    constructor(parent: PascalParserTD) {
+        super(parent);
+    }
+
+    /**
+     * Parse a variable
+     * @param token the initial token.
+     * @param variableId the symbol table entry of the variable identifier.
+     * @return the root node of the generated parse tree.
+     */
+    // @ts-ignore
+    public parse(token: Token, variableId?: SymTabEntry): ICodeNode {
+        if (arguments.length === 1) {
+            // Look up the identifier in the symbol table.
+            let name = token.getText().toLowerCase();
+            let variableId = this.getSymTabStack().lookup(name);
+
+            // If not found, flag the error and enter the identifier.
+            // as an undefined identifier with an undefined type.
+            if (variableId === undefined) {
+                this.getErrorHandler().flag(token, PascalErrorCode.IDENTIFIER_UNDEFINED, this as unknown as PascalParserTD);
+                variableId = this.getSymTabStack().enterLocal(name);
+                variableId?.setDefinition(DefinitionImpl.UNDEFINED);
+                variableId?.setTypeSpec(Predefined.undefinedType);
+            }
+
+            return this.parse(token, variableId);
+        }
+
+        // Check how the variable is defined.
+        let defnCode = variableId?.getDefinition();
+        if ((defnCode !== DefinitionImpl.VARIABLE) && (defnCode !== DefinitionImpl.VALUE_PARM) && (defnCode !== DefinitionImpl.VAR_PARM)) {
+            this.getErrorHandler().flag(token, PascalErrorCode.INVALID_IDENTIFIER_USAGE, this as unknown as PascalParserTD);
+        }
+
+        variableId?.appendLineNumber(token.getLineNum());
+
+        let variableNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.VARIABLE);
+        variableNode.setAttribute(ICodeKeyImpl.ID, variableId);
+
+        token = this.nextToken(); // consume the identifier.
+
+        // Parse array subscripts or record fields.
+        let variableType = variableId?.getTypeSpec();
+        while (VariableParser.SUBSCRIPT_FIELD_START_SET.has(token.getType() as PascalTokenType)) {
+            let subFldNode = token.getType() === PascalTokenType.LEFT_BRACKET ?
+                                        this.parseSubscripts(variableType!) :
+                                        this.parseField(variableType!);
+            token = this.currentToken();
+
+            // Update the variable's type.
+            // The variable node adopts the SUBSCRIPTS or FIELD node.
+            variableType = subFldNode.getTypeSpec();
+            variableNode.addChild(subFldNode);
+        }
+
+        variableNode.setTypeSpec(variableType!);
+        return variableNode;
+    }
+
+    public static readonly RIGHT_BRACKET_SET = new Set<PascalTokenType>([
+        PascalTokenType.RIGHT_BRACKET,
+        PascalTokenType.EQUALS,
+        PascalTokenType.SEMICOLON
+    ]);
+
+    /**
+     * Parse a set of comma-separated subscripts expressions.
+     * @param variableType the type of the array variable.
+     * @return the root node of the generated parse tree.
+     * @private
+     */
+    private parseSubscripts(variableType: TypeSpec): ICodeNode {
+        let token: Token;
+        let expressionParser = new ExpressionParser(this as unknown as PascalParserTD);
+
+        // Create a SUBSCRIPTS node.
+        let subscriptsNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.SUBSCRIPTS);
+
+        do {
+            token = this.nextToken(); // consume the [ or , token
+
+            // The current variables is an array.
+            if (variableType.getForm() === TypeFormImpl.ARRAY) {
+
+                // Parse the subscripts expressions.
+                let exprNode = expressionParser.parse(token);
+                let exprType = exprNode !== undefined ? exprNode.getTypeSpec() : Predefined.undefinedType;
+
+                // The subscripts expression type must be assignment
+                // compatible with the array index type.
+                let indexType = variableType.getAttribute(TypeKeyImpl.ARRAY_INDEX_TYPE) as TypeSpec;
+                if (!TypeChecker.areAssignmentCompatible(indexType, exprType)) {
+                    this.getErrorHandler().flag(token, PascalErrorCode.INCOMPATIBLE_TYPES, this as unknown as PascalParserTD);
+                }
+
+                // The SUBSCRIPTS node adopts the subscripts expression tree.
+                subscriptsNode.addChild(exprNode);
+
+                // Update the variable's type.
+                variableType = variableType.getAttribute(TypeKeyImpl.ARRAY_ELEMENT_TYPE) as TypeSpec;
+
+            }
+
+            // Not a array type, or too many subscripts.
+            else {
+                this.getErrorHandler().flag(token, PascalErrorCode.TOO_MANY_SUBSCRIPTS, this as unknown as PascalParserTD);
+                expressionParser.parse(token);
+            }
+
+            token = this.currentToken();
+        } while (token.getType() === PascalTokenType.COMMA);
+
+        // Synchronize at the ] token.
+        token = this.synchronize(VariableParser.RIGHT_BRACKET_SET);
+        if (token.getType() === PascalTokenType.RIGHT_BRACKET) {
+            token = this.nextToken(); // consume the ] token
+        } else {
+            this.getErrorHandler().flag(token, PascalErrorCode.MISSING_RIGHT_BRACKET, this as unknown as PascalParserTD);
+        }
+
+        subscriptsNode.setTypeSpec(variableType);
+        return subscriptsNode;
+    }
+
+    /**
+     * Parse a record field.
+     * @param variableType the type of the record variable.
+     * @return the root node of the generated parse tree.
+     * @private
+     */
+    private parseField(variableType: TypeSpec): ICodeNode {
+        let fieldNode = ICodeFactory.createICodeNode(ICodeNodeTypeImpl.FIELD);
+
+        let token = this.nextToken(); // consume the . token.
+        let tokenType = token.getType();
+        let variableForm = variableType.getForm();
+
+        if ((tokenType === PascalTokenType.IDENTIFIER) && (variableForm === TypeFormImpl.RECORD)) {
+            let symTab = variableType.getAttribute(TypeKeyImpl.RECORD_SYMTAB) as SymTab;
+            let fieldName = token.getText().toLowerCase();
+            let fieldId = symTab.lookup(fieldName);
+
+            if (fieldId !== undefined) {
+                variableType = fieldId.getTypeSpec();
+                fieldId.appendLineNumber(token.getLineNum());
+
+                // Set the field identifier's name.
+                fieldNode.setAttribute(ICodeKeyImpl.ID, fieldId);
+            } else {
+                this.getErrorHandler().flag(token, PascalErrorCode.INVALID_FIELD, this as unknown as PascalParserTD);
+            }
+        } else {
+            this.getErrorHandler().flag(token, PascalErrorCode.INVALID_FIELD, this as unknown as PascalParserTD);
+        }
+
+        token = this.nextToken(); // consume the field identifier.
+
+        fieldNode.setTypeSpec(variableType);
+        return fieldNode;
+    }
+
 }

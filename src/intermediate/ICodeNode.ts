@@ -1,5 +1,6 @@
 import {ICodeNodeType} from "./ICodeNodeType.ts";
 import {ICodeKey} from "./ICodeKey.ts";
+import {TypeSpec} from "./TypeSpec.ts";
 
 /**
  * <h1>ICodeNode</h1>
@@ -52,4 +53,15 @@ export interface ICodeNode {
      */
     copy(): ICodeNode;
 
+    /**
+     * Set the type specification of this node.
+     * @param typeSpec the type specification to set.
+     */
+    setTypeSpec(typeSpec: TypeSpec): void;
+
+    /**
+     * Return the type specification of this node.
+     * @return the type specification.
+     */
+    getTypeSpec(): TypeSpec;
 }
