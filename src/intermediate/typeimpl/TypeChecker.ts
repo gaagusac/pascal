@@ -20,7 +20,7 @@ export class TypeChecker {
 
     /**
      * Check if both type specifications are integer.
-     * @param type1 the first type specification to chekc.
+     * @param type1 the first type specification to check.
      * @param type2 the second type specification to check.
      */
     public static areBothInteger(type1: TypeSpec, type2: TypeSpec): boolean {
@@ -138,7 +138,7 @@ export class TypeChecker {
         let compatible = false;
 
         // Two identical scalar or enumeration types.
-        if ((type1 === type2) && (form === TypeFormImpl.SCALAR) || (form === TypeFormImpl.ENUMERATION)) {
+        if ((type1 === type2) && ((form === TypeFormImpl.SCALAR) || (form === TypeFormImpl.ENUMERATION))) {
             compatible = true;
         }
 

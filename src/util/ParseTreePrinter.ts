@@ -6,7 +6,6 @@ import {SymTabStack} from "../intermediate/SymTabStack.ts";
 import {SymTabEntry} from "../intermediate/SymTabEntry.ts";
 import {SymTabKeyImpl} from "../intermediate/symtabimpl/SymTabKeyImpl.ts";
 
-
 export class ParseTreePrinter {
 
     private static readonly INDENT_WIDTH = 4;
@@ -156,6 +155,28 @@ export class ParseTreePrinter {
      */
     // @ts-ignore
     private printTypeSpec(node: ICodeNodeImpl) {
+        let typeSpec = node.getTypeSpec();
+
+        if (typeSpec !== undefined) {
+            let saveMargin = this.indentation;
+            this.indentation += this.indent;
+
+            let typeName: string;
+            let typeId = typeSpec.getIdentifier();
+
+            // Name type: Print the type identifier's name.
+            if (typeId !== undefined) {
+                typeName = typeId.getName();
+            }
+
+            // Unnamed type: print an artificial type identifier name.
+            else {
+                typeName = `\$anon_${this.generateUID()}`;
+            }
+
+            this.printAttribute("TYPE_ID", typeName);
+            this.indentation = saveMargin;
+        }
     }
 
     /**
@@ -192,5 +213,18 @@ export class ParseTreePrinter {
             this.line = "";
             this.length = 0;
         }
+    }
+
+    // @ts-ignore
+    private generateUID(): string {
+        let firstPart = (Math.random() * 46656) | 0;
+        let secondPart = (Math.random() * 46656) | 0;
+        // @ts-ignore
+        firstPart = ("000" + firstPart.toString(36)).slice(-3);
+        // @ts-ignore
+        secondPart = ("000" + secondPart.toString(36)).slice(-3);
+
+        // @ts-ignore
+        return firstPart + secondPart;
     }
 }
