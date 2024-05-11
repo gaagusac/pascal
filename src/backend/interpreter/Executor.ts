@@ -10,12 +10,15 @@ import {ICodeNodeTypeImpl} from "../../intermediate/icodeimpl/ICodeNodeTypeImpl.
 import {RuntimeErrorCode} from "./RuntimeErrorCode.ts";
 import {SymTabEntry} from "../../intermediate/SymTabEntry.ts";
 import {SymTabKeyImpl} from "../../intermediate/symtabimpl/SymTabKeyImpl.ts";
+import {RuntimeStack} from "./memory.ts";
 
 export class Executor extends Backend {
 
+    protected static runtimeStack: RuntimeStack;
 
-    protected errorHandler: RuntimeErrorHandler = new RuntimeErrorHandler();
+    protected static standardIn = alert;
     protected static executionCount: number = 0;
+    protected errorHandler: RuntimeErrorHandler = new RuntimeErrorHandler();
 
     /**
      * @constructor
